@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../lib/api';
 
+const getInitials = (firstName: string, lastName: string): string => {
+  const first = firstName && firstName.length > 0 ? firstName[0].toUpperCase() : '';
+  const last = lastName && lastName.length > 0 ? lastName[0].toUpperCase() : '';
+  return first && last ? `${first}${last}` : first || last || '?';
+};
+
 export default function Users() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -39,9 +45,12 @@ export default function Users() {
   };
 
   if (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error occurred while loading users';
+
     return (
       <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-        Error loading users: {(error as any).response?.data?.error?.message || 'Unknown error'}
+        Error loading users: {errorMessage}
       </div>
     );
   }
@@ -95,63 +104,73 @@ export default function Users() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {data?.data?.map((user: any) => (
-                    <tr key={user.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                              {user.firstName[0]}
-                              {user.lastName[0]}
+                  {data?.data?.map(
+                    (user: {
+                      id: string;
+                      email: string;
+                      firstName: string;
+                      lastName: string;
+                      role: string;
+                      isActive: boolean;
+                    }) => (
+                      <tr key={user.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                                {getInitials(user.firstName, user.lastName)}
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {user.firstName} {user.lastName}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                ID: {user.id.slice(0, 8)}...
+                              </div>
                             </div>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.firstName} {user.lastName}
-                            </div>
-                            <div className="text-sm text-gray-500">ID: {user.id.slice(0, 8)}...</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{user.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.isActive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        {user.isActive && (
-                          <button
-                            onClick={() => handleDeactivate(user.id)}
-                            disabled={deactivateMutation.isPending}
-                            className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50"
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{user.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              user.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}
                           >
-                            Deactivate
+                            {user.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                          {user.isActive && (
+                            <button
+                              onClick={() => handleDeactivate(user.id)}
+                              disabled={deactivateMutation.isPending}
+                              className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50"
+                            >
+                              Deactivate
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(user.id)}
+                            disabled={deleteMutation.isPending}
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                          >
+                            Delete
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(user.id)}
-                          disabled={deleteMutation.isPending}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    )
+                  )}
                 </tbody>
               </table>
             </div>

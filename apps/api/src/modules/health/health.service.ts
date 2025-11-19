@@ -27,7 +27,7 @@ export class HealthService {
   /**
    * Initialize Redis connection for health checks
    */
-  static initializeRedis(): void {
+  static async initializeRedis(): Promise<void> {
     try {
       this.redis = new Redis({
         host: process.env.REDIS_HOST || 'localhost',
@@ -36,9 +36,12 @@ export class HealthService {
         retryStrategy: () => null, // Don't retry for health checks
         lazyConnect: true,
       });
+      // Ensure connection is established
+      await this.redis.connect();
       /* istanbul ignore next - Redis constructor errors are rare and hard to test */
     } catch (error) {
       logger.error('Failed to initialize Redis for health checks', { error });
+      throw error;
     }
   }
 
@@ -77,7 +80,7 @@ export class HealthService {
 
     try {
       if (!this.redis) {
-        this.initializeRedis();
+        await this.initializeRedis();
       }
 
       await this.redis.ping();
@@ -168,13 +171,16 @@ export class HealthService {
 
   /**
    * Quick liveness check (for Kubernetes, Docker, etc.)
+   * Returns true if the application is alive and can serve requests
    */
   static async livenessCheck(): Promise<boolean> {
     try {
-      // Just check if the process is running
-      return true;
-      /* istanbul ignore next - Unreachable code path */
+      // Check if we can perform basic operations
+      // For liveness, we just need to verify the process is responsive
+      const memoryCheck = this.checkMemory();
+      return memoryCheck.status === 'up';
     } catch {
+      // If we can't even check memory, the process is likely in a bad state
       return false;
     }
   }

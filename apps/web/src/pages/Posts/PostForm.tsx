@@ -99,17 +99,16 @@ export default function PostForm() {
       } else {
         await createMutation.mutateAsync(data);
       }
-    } catch (error: any) {
-      console.error('Error saving post:', error);
-      alert(error?.response?.data?.error || 'Failed to save post');
+    } catch (error: unknown) {
+      // Log error for debugging (consider using a proper error tracking service in production)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save post';
+      alert(errorMessage);
     }
   };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">
-        {isEditMode ? 'Edit Post' : 'Create New Post'}
-      </h1>
+      <h1 className="text-3xl font-bold mb-6">{isEditMode ? 'Edit Post' : 'Create New Post'}</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Title */}
@@ -124,9 +123,7 @@ export default function PostForm() {
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter post title"
           />
-          {errors.title && (
-            <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-          )}
+          {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
         </div>
 
         {/* Excerpt */}
@@ -141,9 +138,7 @@ export default function PostForm() {
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Brief summary of the post (optional)"
           />
-          {errors.excerpt && (
-            <p className="mt-1 text-sm text-red-600">{errors.excerpt.message}</p>
-          )}
+          {errors.excerpt && <p className="mt-1 text-sm text-red-600">{errors.excerpt.message}</p>}
         </div>
 
         {/* Content */}
@@ -158,9 +153,7 @@ export default function PostForm() {
             className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
             placeholder="Write your post content here... (Markdown supported)"
           />
-          {errors.content && (
-            <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>
-          )}
+          {errors.content && <p className="mt-1 text-sm text-red-600">{errors.content.message}</p>}
         </div>
 
         {/* Status */}
@@ -177,9 +170,7 @@ export default function PostForm() {
             <option value="PUBLISHED">Published</option>
             <option value="ARCHIVED">Archived</option>
           </select>
-          {errors.status && (
-            <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-          )}
+          {errors.status && <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>}
         </div>
 
         {/* SEO Section */}

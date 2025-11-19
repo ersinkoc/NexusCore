@@ -76,11 +76,7 @@ apiClient.interceptors.response.use(
 
       try {
         // Attempt to refresh token
-        const response = await axios.post(
-          `${API_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
+        const response = await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
 
         const { accessToken } = response.data.data;
 
@@ -101,7 +97,9 @@ apiClient.interceptors.response.use(
         // Refresh failed - clear auth and redirect to login
         processQueue(refreshError as Error, null);
         localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        // Use BASE_URL from environment or default to root
+        const basePath = import.meta.env.BASE_URL || '/';
+        window.location.href = `${basePath}login`.replace('//', '/');
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

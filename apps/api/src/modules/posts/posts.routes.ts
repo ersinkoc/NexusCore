@@ -3,6 +3,7 @@ import { PostsService } from './posts.service';
 import { requireAuth, AuthenticatedRequest } from '../auth/auth.middleware';
 import { createPostSchema, updatePostSchema, queryPostsSchema } from '@nexuscore/types';
 import { ValidationError } from '../../core/errors';
+import { asyncHandler } from '../../shared/utils/async-handler';
 
 const router: Router = Router();
 
@@ -74,10 +75,13 @@ router.get('/', async (req: Request, res: Response) => {
  *       404:
  *         description: Post not found
  */
-router.get('/slug/:slug', async (req: Request, res: Response) => {
-  const post = await PostsService.findBySlug(req.params.slug);
-  res.json(post);
-});
+router.get(
+  '/slug/:slug',
+  asyncHandler(async (req: Request, res: Response) => {
+    const post = await PostsService.findBySlug(req.params.slug);
+    res.json(post);
+  })
+);
 
 /**
  * @swagger
@@ -113,10 +117,15 @@ router.get('/slug/:slug', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     const data = createPostSchema.parse(req.body);
-    const post = await PostsService.create(req.user!.userId, data);
+    const post = await PostsService.create(req.user.userId, data);
     res.status(201).json(post);
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
@@ -146,10 +155,13 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =
  *       404:
  *         description: Post not found
  */
-router.get('/:id', async (req: Request, res: Response) => {
-  const post = await PostsService.findById(req.params.id);
-  res.json(post);
-});
+router.get(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const post = await PostsService.findById(req.params.id);
+    res.json(post);
+  })
+);
 
 /**
  * @swagger
@@ -189,10 +201,15 @@ router.get('/:id', async (req: Request, res: Response) => {
  *       404:
  *         description: Post not found
  */
-router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
     const data = updatePostSchema.parse(req.body);
-    const post = await PostsService.update(req.params.id, req.user!.userId, req.user!.role, data);
+    const post = await PostsService.update(req.params.id, req.user.userId, req.user.role, data);
     res.json(post);
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
@@ -226,10 +243,19 @@ router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
  *       404:
  *         description: Post not found
  */
-router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const result = await PostsService.delete(req.params.id, req.user!.userId, req.user!.role);
-  res.json(result);
-});
+router.delete(
+  '/:id',
+  requireAuth,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const result = await PostsService.delete(req.params.id, req.user.userId, req.user.role);
+    res.json(result);
+  })
+);
 
 /**
  * @swagger
@@ -255,9 +281,18 @@ router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Respon
  *       404:
  *         description: Post not found
  */
-router.post('/:id/publish', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  const post = await PostsService.publish(req.params.id, req.user!.userId, req.user!.role);
-  res.json(post);
-});
+router.post(
+  '/:id/publish',
+  requireAuth,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const post = await PostsService.publish(req.params.id, req.user.userId, req.user.role);
+    res.json(post);
+  })
+);
 
 export default router;

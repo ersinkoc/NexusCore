@@ -1,7 +1,19 @@
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
+import { mkdirSync, existsSync } from 'fs';
+import { dirname } from 'path';
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
+
+/**
+ * Ensure directory exists for log files
+ */
+const ensureLogDirectory = (filePath: string): void => {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+};
 
 // Custom log format
 const logFormat = printf(({ level, message, timestamp, stack, ...metadata }) => {
@@ -23,11 +35,7 @@ const logFormat = printf(({ level, message, timestamp, stack, ...metadata }) => 
 // Create logger instance
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
-  format: combine(
-    errors({ stack: true }),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    logFormat
-  ),
+  format: combine(errors({ stack: true }), timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), logFormat),
   transports: [
     // Console transport
     new winston.transports.Console({
@@ -39,6 +47,9 @@ export const logger = winston.createLogger({
 // Add file transports in production
 if (process.env.NODE_ENV === 'production') {
   const logPath = process.env.LOG_FILE_PATH || './logs';
+
+  // Ensure log directory exists
+  ensureLogDirectory(`${logPath}/placeholder.log`);
 
   // Error logs
   logger.add(
@@ -63,10 +74,10 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Handle uncaught exceptions and unhandled rejections
-logger.exceptions.handle(
-  new winston.transports.File({ filename: 'logs/exceptions.log' })
-);
+// Ensure logs directory exists for exception/rejection handlers
+ensureLogDirectory('logs/exceptions.log');
+ensureLogDirectory('logs/rejections.log');
 
-logger.rejections.handle(
-  new winston.transports.File({ filename: 'logs/rejections.log' })
-);
+logger.exceptions.handle(new winston.transports.File({ filename: 'logs/exceptions.log' }));
+
+logger.rejections.handle(new winston.transports.File({ filename: 'logs/rejections.log' }));

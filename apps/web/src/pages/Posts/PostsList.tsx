@@ -31,6 +31,12 @@ interface PostsResponse {
   };
 }
 
+const getInitials = (firstName: string, lastName: string): string => {
+  const first = firstName && firstName.length > 0 ? firstName[0].toUpperCase() : '';
+  const last = lastName && lastName.length > 0 ? lastName[0].toUpperCase() : '';
+  return first && last ? `${first}${last}` : first || last || '?';
+};
+
 export default function PostsList() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -155,16 +161,13 @@ export default function PostsList() {
                 </span>
               </div>
 
-              {post.excerpt && (
-                <p className="text-gray-600 mb-4 line-clamp-2">{post.excerpt}</p>
-              )}
+              {post.excerpt && <p className="text-gray-600 mb-4 line-clamp-2">{post.excerpt}</p>}
 
               <div className="flex items-center gap-4 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                     <span className="text-blue-600 font-medium">
-                      {post.author.firstName[0]}
-                      {post.author.lastName[0]}
+                      {getInitials(post.author.firstName, post.author.lastName)}
                     </span>
                   </div>
                   <span>
@@ -187,8 +190,8 @@ export default function PostsList() {
       {data && data.pagination.totalPages > 1 && (
         <div className="mt-6 flex items-center justify-between">
           <div className="text-sm text-gray-700">
-            Showing page {data.pagination.page} of {data.pagination.totalPages}
-            {' '}({data.pagination.total} total posts)
+            Showing page {data.pagination.page} of {data.pagination.totalPages} (
+            {data.pagination.total} total posts)
           </div>
           <div className="flex gap-2">
             <button
