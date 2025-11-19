@@ -1,12 +1,7 @@
 import { prisma } from '@nexuscore/db';
 import { LoginInput, RegisterInput, JWTPayload, UserRole } from '@nexuscore/types';
 
-import {
-  ConflictError,
-  UnauthorizedError,
-  NotFoundError,
-  ValidationError,
-} from '../../core/errors';
+import { ConflictError, UnauthorizedError, NotFoundError } from '../../core/errors';
 import { PasswordService, JWTService } from '../../shared/services';
 import { eventBus } from '../../core/event-bus';
 import { logger } from '../../core/logger';
@@ -151,7 +146,7 @@ export class AuthService {
    */
   async refresh(refreshToken: string) {
     // Verify refresh token
-    const payload = JWTService.verifyRefreshToken(refreshToken);
+    JWTService.verifyRefreshToken(refreshToken);
 
     // Check if refresh token exists in database
     const storedToken = await prisma.refreshToken.findUnique({

@@ -86,7 +86,7 @@ export class AuthController {
    * Refresh access token
    * POST /api/auth/refresh
    */
-  refresh = asyncHandler(async (req: Request, res: Response) => {
+  refresh = asyncHandler(async (req: Request, res: Response): Promise<any> => {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {

@@ -1,11 +1,11 @@
-import { EventHandler } from '../../core/event-bus';
+import { EventHandler } from '@nexuscore/types';
 import { logger } from '../../core/logger';
 import { prisma } from '@nexuscore/db';
 
 /**
  * Handle post created event
  */
-const onPostCreated: EventHandler<'post.created'> = async (payload) => {
+const onPostCreated: EventHandler<'post.created'> = async (payload: any) => {
   const { post, userId } = payload;
 
   // Create audit log
@@ -28,7 +28,7 @@ const onPostCreated: EventHandler<'post.created'> = async (payload) => {
 /**
  * Handle post updated event
  */
-const onPostUpdated: EventHandler<'post.updated'> = async (payload) => {
+const onPostUpdated: EventHandler<'post.updated'> = async (payload: any) => {
   const { post, userId } = payload;
 
   // Create audit log
@@ -51,7 +51,7 @@ const onPostUpdated: EventHandler<'post.updated'> = async (payload) => {
 /**
  * Handle post published event
  */
-const onPostPublished: EventHandler<'post.published'> = async (payload) => {
+const onPostPublished: EventHandler<'post.published'> = async (payload: any) => {
   const { post, userId } = payload;
 
   // Create audit log
@@ -80,7 +80,7 @@ const onPostPublished: EventHandler<'post.published'> = async (payload) => {
 /**
  * Handle post deleted event
  */
-const onPostDeleted: EventHandler<'post.deleted'> = async (payload) => {
+const onPostDeleted: EventHandler<'post.deleted'> = async (payload: any) => {
   const { postId, userId } = payload;
 
   // Create audit log
@@ -99,9 +99,13 @@ const onPostDeleted: EventHandler<'post.deleted'> = async (payload) => {
   logger.info('Post deleted event handled', { postId });
 };
 
-export const PostEventHandlers = {
-  'post.created': onPostCreated,
-  'post.updated': onPostUpdated,
-  'post.published': onPostPublished,
-  'post.deleted': onPostDeleted,
+/**
+ * Export all event handlers
+ * Wrapped to match IModule events signature
+ */
+export const PostEventHandlers: Record<string, (...args: unknown[]) => void | Promise<void>> = {
+  'post.created': (...args: unknown[]) => onPostCreated(args[0] as any),
+  'post.updated': (...args: unknown[]) => onPostUpdated(args[0] as any),
+  'post.published': (...args: unknown[]) => onPostPublished(args[0] as any),
+  'post.deleted': (...args: unknown[]) => onPostDeleted(args[0] as any),
 };
