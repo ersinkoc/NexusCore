@@ -50,8 +50,13 @@ export class App {
       });
     });
 
-    // Load modules dynamically
-    await this.moduleLoader.loadModules();
+    // Load modules dynamically (with error tolerance)
+    try {
+      await this.moduleLoader.loadModules();
+    } catch (error) {
+      logger.error('Failed to load some modules:', error);
+      // Continue with server startup even if some modules fail
+    }
 
     // Error handling (must be last)
     this.app.use(notFoundHandler);

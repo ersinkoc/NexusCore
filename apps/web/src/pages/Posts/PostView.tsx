@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../../lib/api-client';
 import { useAuthStore } from '../../store/auth.store';
+import { UserRole } from '@nexuscore/types';
 
 interface Post {
   id: string;
@@ -71,7 +72,7 @@ export default function PostView() {
     }
   };
 
-  const canEdit = isAuthenticated && (user?.userId === post?.author.id || user?.role === 'ADMIN');
+  const canEdit = isAuthenticated && (user?.userId === post?.author.id || user?.role === UserRole.ADMIN);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

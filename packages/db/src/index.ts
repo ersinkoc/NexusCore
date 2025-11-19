@@ -6,28 +6,40 @@ import { PrismaClient } from '@prisma/client';
  */
 
 declare global {
-  // eslint-disable-next-line no-var
+  // eslint-disable-no-var
   var prisma: PrismaClient | undefined;
 }
 
-export const prisma =
-  global.prisma ||
-  new PrismaClient({
-    log:
-      process.env.NODE_ENV === 'development'
-        ? ['query', 'error', 'warn']
-        : ['error'],
-  });
+let prismaInstance: PrismaClient | null = null;
 
-if (process.env.NODE_ENV !== 'production') {
-  global.prisma = prisma;
+export function getPrismaClient(): PrismaClient {
+  if (!prismaInstance) {
+    try {
+      prismaInstance = global.prisma || new PrismaClient({
+        log:
+          process.env.NODE_ENV === 'development'
+            ? ['query', 'error', 'warn']
+            : ['error'],
+      });
+
+      if (process.env.NODE_ENV !== 'production') {
+        global.prisma = prismaInstance;
+      }
+    } catch (error) {
+      console.error('Failed to initialize PrismaClient:', error);
+      throw new Error('Prisma client initialization failed. Please run "prisma generate"');
+    }
+  }
+  return prismaInstance;
 }
+
+export const prisma = getPrismaClient();
 
 // Graceful shutdown
 process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
 
-// Export types
+// Export Prisma types
 export * from '@prisma/client';
 export type { Prisma } from '@prisma/client';

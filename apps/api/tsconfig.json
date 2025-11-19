@@ -1,6 +1,10 @@
 {
-  "extends": "@nexuscore/config/tsconfig.node.json",
+  "extends": "@nexuscore/config/tsconfig.base.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": "./src",
@@ -9,7 +13,9 @@
       "@core/*": ["./core/*"],
       "@modules/*": ["./modules/*"],
       "@shared/*": ["./shared/*"]
-    }
+    },
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

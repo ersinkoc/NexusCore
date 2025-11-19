@@ -48,9 +48,11 @@ services:
     ports:
       - '5050:80'
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@nexuscore.local
+      PGADMIN_DEFAULT_EMAIL: admin@nexuscore.dev
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: 'False'
+      PGADMIN_CONFIG_ALLOW_SPECIAL_EMAIL_DOMAINS: '["local", "dev", "localhost"]'
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:

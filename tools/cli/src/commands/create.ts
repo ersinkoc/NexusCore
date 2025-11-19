@@ -1,13 +1,12 @@
 import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
-import { execa } from 'execa';
+import execa from 'execa';
 import fs from 'fs-extra';
 import path from 'path';
 
 import { cloneTemplate, initGit } from '../utils/clone';
 import {
-  generatePackageJson,
   generateApiEnv,
   generateWebEnv,
   generateDbEnv,
