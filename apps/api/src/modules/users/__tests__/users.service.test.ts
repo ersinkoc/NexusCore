@@ -79,6 +79,36 @@ describe('UsersService', () => {
       });
     });
 
+    it('should use default sortBy when only sortOrder is provided', async () => {
+      const mockUsers = [
+        {
+          id: 'user-1',
+          email: 'user1@example.com',
+          firstName: 'John',
+          lastName: 'Doe',
+          role: UserRole.USER,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      (prisma.user.findMany as jest.Mock).mockResolvedValue(mockUsers);
+      (prisma.user.count as jest.Mock).mockResolvedValue(1);
+
+      // Call with sortOrder but without sortBy to test sortBy default
+      const result = await usersService.getUsers({ page: 1, limit: 10, sortOrder: 'asc' });
+
+      expect(result.data).toEqual(mockUsers);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {},
+        skip: 0,
+        take: 10,
+        orderBy: { createdAt: 'asc' }, // Should use default sortBy with provided sortOrder
+        select: expect.any(Object),
+      });
+    });
+
     it('should filter users by role', async () => {
       const mockUsers = [
         {

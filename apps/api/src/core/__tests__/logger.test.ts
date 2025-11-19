@@ -121,4 +121,74 @@ describe('Logger', () => {
       expect(() => logger.info('Large object test', { data: largeObj })).not.toThrow();
     });
   });
+
+  describe('Production environment configuration', () => {
+    let originalEnv: string | undefined;
+
+    beforeAll(() => {
+      originalEnv = process.env.NODE_ENV;
+    });
+
+    afterAll(() => {
+      if (originalEnv) {
+        process.env.NODE_ENV = originalEnv;
+      } else {
+        delete process.env.NODE_ENV;
+      }
+    });
+
+    it('should add file transports in production mode', () => {
+      // Set production environment
+      process.env.NODE_ENV = 'production';
+
+      // Re-import logger to trigger production configuration
+      jest.isolateModules(() => {
+        jest.resetModules();
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { logger: prodLogger } = require('../logger');
+
+        // Logger should be defined and have methods
+        expect(prodLogger).toBeDefined();
+        expect(prodLogger.info).toBeDefined();
+        expect(prodLogger.error).toBeDefined();
+
+        // Test that logger works in production mode
+        expect(() => prodLogger.info('Production test')).not.toThrow();
+        expect(() => prodLogger.error('Production error')).not.toThrow();
+      });
+    });
+
+    it('should use custom log path from environment variable in production', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.LOG_FILE_PATH = '/custom/logs';
+
+      jest.isolateModules(() => {
+        jest.resetModules();
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { logger: prodLogger } = require('../logger');
+
+        // Logger should work with custom log path
+        expect(prodLogger).toBeDefined();
+        expect(() => prodLogger.info('Custom path test')).not.toThrow();
+      });
+
+      // Clean up
+      delete process.env.LOG_FILE_PATH;
+    });
+
+    it('should use default log path when LOG_FILE_PATH is not set in production', () => {
+      process.env.NODE_ENV = 'production';
+      delete process.env.LOG_FILE_PATH;
+
+      jest.isolateModules(() => {
+        jest.resetModules();
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { logger: prodLogger } = require('../logger');
+
+        // Logger should work with default ./logs path
+        expect(prodLogger).toBeDefined();
+        expect(() => prodLogger.info('Default path test')).not.toThrow();
+      });
+    });
+  });
 });

@@ -471,5 +471,43 @@ describe('Posts Routes Integration Tests', () => {
       // Express returns 500 for malformed JSON (parsing error)
       expect([400, 500]).toContain(response.status);
     });
+
+    it('should rethrow non-Zod errors from GET /posts', async () => {
+      // Mock findMany to throw a non-Zod error
+      (PostsService.findMany as jest.Mock).mockRejectedValue(
+        new Error('Database connection failed')
+      );
+
+      const response = await request(app).get('/posts');
+
+      expect(response.status).toBe(500);
+    });
+
+    it('should rethrow non-Zod errors from POST /posts', async () => {
+      const createData = {
+        title: 'Test',
+        content: 'Content',
+      };
+
+      // Mock create to throw a non-Zod, non-Validation error
+      (PostsService.create as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app).post('/posts').send(createData);
+
+      expect(response.status).toBe(500);
+    });
+
+    it('should rethrow non-Zod errors from PUT /posts/:id', async () => {
+      const updateData = {
+        title: 'Updated',
+      };
+
+      // Mock update to throw a non-Zod error
+      (PostsService.update as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      const response = await request(app).put('/posts/post-123').send(updateData);
+
+      expect(response.status).toBe(500);
+    });
   });
 });

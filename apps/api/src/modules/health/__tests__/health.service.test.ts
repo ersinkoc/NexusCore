@@ -204,5 +204,24 @@ describe('HealthService', () => {
       expect(result.status).toBe('unhealthy');
       expect(result.checks.database.status).toBe('down');
     });
+
+    it('should handle non-Error Redis check failures', async () => {
+      // Test the error instanceof Error check by throwing a string
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ result: 1 }]);
+
+      // Temporarily replace checkRedis to throw a non-Error
+      const originalCheckRedis = (HealthService as any).checkRedis;
+      (HealthService as any).checkRedis = async () => {
+        throw 'String error'; // Non-Error object
+      };
+
+      const result = await HealthService.performHealthCheck();
+
+      expect(result.checks.redis.status).toBe('down');
+      expect(result.checks.redis.message).toBe('Redis connection failed');
+
+      // Restore
+      (HealthService as any).checkRedis = originalCheckRedis;
+    });
   });
 });
