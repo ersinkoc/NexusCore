@@ -145,10 +145,7 @@ export class AuthService {
    * Refresh access token using refresh token
    */
   async refresh(refreshToken: string) {
-    // Verify refresh token
-    JWTService.verifyRefreshToken(refreshToken);
-
-    // Check if refresh token exists in database
+    // Check if refresh token exists in database first
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
@@ -157,6 +154,9 @@ export class AuthService {
     if (!storedToken) {
       throw new UnauthorizedError('Invalid refresh token');
     }
+
+    // Verify token signature and expiration
+    JWTService.verifyRefreshToken(refreshToken);
 
     // Check if token is expired
     if (storedToken.expiresAt < new Date()) {

@@ -4,6 +4,7 @@ import {
   UpdatePostInput,
   QueryPostsInput,
   PostStatus,
+  UserRole,
 } from '@nexuscore/types';
 import { NotFoundError, ForbiddenError } from '../../core/errors';
 import { eventBus } from '../../core/event-bus';
@@ -24,43 +25,21 @@ function generateSlug(title: string): string {
 export class PostsService {
   /**
    * Create a new post
+   * Generates unique slug by appending timestamp if slug already exists
    */
   static async create(userId: string, input: CreatePostInput) {
-    const slug = generateSlug(input.title);
+    let slug = generateSlug(input.title);
 
-    // Check if slug already exists
+    // Check if slug already exists and make it unique if needed
     const existing = await prisma.post.findUnique({
       where: { slug },
     });
 
     if (existing) {
-      const timestamp = Date.now();
-      const uniqueSlug = `${slug}-${timestamp}`;
-
-      const post = await prisma.post.create({
-        data: {
-          ...input,
-          slug: uniqueSlug,
-          authorId: userId,
-        },
-        include: {
-          author: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      });
-
-      logger.info('Post created', { postId: post.id, userId });
-      eventBus.emit('post.created', { post, userId });
-
-      return post;
+      slug = `${slug}-${Date.now()}`;
     }
 
+    // Create post with unique slug
     const post = await prisma.post.create({
       data: {
         ...input,
@@ -142,10 +121,13 @@ export class PostsService {
 
   /**
    * Get post by ID
+   * Note: Uses atomic update to increment view count without race conditions
    */
   static async findById(id: string) {
-    const post = await prisma.post.findUnique({
+    // Atomic increment and return updated post in single query
+    const post = await prisma.post.update({
       where: { id },
+      data: { viewCount: { increment: 1 } },
       include: {
         author: {
           select: {
@@ -156,16 +138,12 @@ export class PostsService {
           },
         },
       },
-    });
-
-    if (!post) {
-      throw new NotFoundError('Post not found');
-    }
-
-    // Increment view count
-    await prisma.post.update({
-      where: { id },
-      data: { viewCount: { increment: 1 } },
+    }).catch((error: any) => {
+      // If post not found, Prisma throws error
+      if (error.code === 'P2025') {
+        throw new NotFoundError('Post not found');
+      }
+      throw error;
     });
 
     return post;
@@ -173,10 +151,13 @@ export class PostsService {
 
   /**
    * Get post by slug
+   * Note: Uses atomic update to increment view count without race conditions
    */
   static async findBySlug(slug: string) {
-    const post = await prisma.post.findUnique({
+    // Atomic increment and return updated post in single query
+    const post = await prisma.post.update({
       where: { slug },
+      data: { viewCount: { increment: 1 } },
       include: {
         author: {
           select: {
@@ -187,16 +168,12 @@ export class PostsService {
           },
         },
       },
-    });
-
-    if (!post) {
-      throw new NotFoundError('Post not found');
-    }
-
-    // Increment view count
-    await prisma.post.update({
-      where: { slug },
-      data: { viewCount: { increment: 1 } },
+    }).catch((error: any) => {
+      // If post not found, Prisma throws error
+      if (error.code === 'P2025') {
+        throw new NotFoundError('Post not found');
+      }
+      throw error;
     });
 
     return post;
@@ -215,7 +192,7 @@ export class PostsService {
     }
 
     // Check permissions: only author or admin can update
-    if (post.authorId !== userId && userRole !== 'ADMIN') {
+    if (post.authorId !== userId && userRole !== UserRole.ADMIN) {
       throw new ForbiddenError('You do not have permission to update this post');
     }
 
@@ -253,7 +230,7 @@ export class PostsService {
     }
 
     // Check permissions: only author or admin can delete
-    if (post.authorId !== userId && userRole !== 'ADMIN') {
+    if (post.authorId !== userId && userRole !== UserRole.ADMIN) {
       throw new ForbiddenError('You do not have permission to delete this post');
     }
 
@@ -279,7 +256,7 @@ export class PostsService {
       throw new NotFoundError('Post not found');
     }
 
-    if (post.authorId !== userId && userRole !== 'ADMIN') {
+    if (post.authorId !== userId && userRole !== UserRole.ADMIN) {
       throw new ForbiddenError('You do not have permission to publish this post');
     }
 

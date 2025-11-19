@@ -2,6 +2,8 @@
  * Template generation utilities for NexusCore CLI
  */
 
+import { randomBytes } from 'crypto';
+
 export function generatePackageJson(projectName: string) {
   return {
     name: projectName,
@@ -197,8 +199,10 @@ tmp
 `;
 }
 
+/**
+ * Generate cryptographically secure random secret for JWT
+ * Uses Node.js crypto.randomBytes for security
+ */
 function generateRandomSecret(): string {
-  return Array.from({ length: 64 }, () =>
-    Math.floor(Math.random() * 16).toString(16)
-  ).join('');
+  return randomBytes(32).toString('hex');
 }

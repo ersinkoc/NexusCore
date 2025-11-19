@@ -9,8 +9,28 @@ import { UnauthorizedError } from '../../core/errors';
  * Handles JWT token generation and verification
  */
 export class JWTService {
-  private static readonly ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'access-secret-key';
-  private static readonly REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret-key';
+  private static readonly ACCESS_SECRET = (() => {
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret) {
+      throw new Error(
+        'JWT_ACCESS_SECRET environment variable is required. ' +
+        'Please set it in your .env file for security.'
+      );
+    }
+    return secret;
+  })();
+
+  private static readonly REFRESH_SECRET = (() => {
+    const secret = process.env.JWT_REFRESH_SECRET;
+    if (!secret) {
+      throw new Error(
+        'JWT_REFRESH_SECRET environment variable is required. ' +
+        'Please set it in your .env file for security.'
+      );
+    }
+    return secret;
+  })();
+
   private static readonly ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '15m';
   private static readonly REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '7d';
 
