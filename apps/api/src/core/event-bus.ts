@@ -19,10 +19,12 @@ import { logger } from './logger';
  */
 export class EventBus implements IEventBus {
   private emitter: EventEmitter;
+  private handlerMap: WeakMap<EventHandler<any>, (...args: unknown[]) => void>;
 
   constructor() {
     this.emitter = new EventEmitter();
     this.emitter.setMaxListeners(100); // Increase for multiple modules
+    this.handlerMap = new WeakMap();
   }
 
   /**
@@ -48,13 +50,15 @@ export class EventBus implements IEventBus {
    */
   onTyped<T extends EventName>(event: T, handler: TypedEventHandler<T>): void {
     logger.debug(`Event listener registered: ${event}`);
-    this.emitter.on(event, async (payload: EventPayload<T>) => {
+    const wrappedHandler = async (payload: EventPayload<T>) => {
       try {
         await handler(payload);
       } catch (error) {
         logger.error(`Error in event handler for "${event}":`, error);
       }
-    });
+    };
+    this.handlerMap.set(handler as EventHandler<any>, wrappedHandler as (...args: unknown[]) => void);
+    this.emitter.on(event, wrappedHandler);
   }
 
   /**
@@ -62,13 +66,15 @@ export class EventBus implements IEventBus {
    */
   on<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`Event listener registered: ${event}`);
-    this.emitter.on(event, async (payload: T) => {
+    const wrappedHandler = async (payload: T) => {
       try {
         await handler(payload);
       } catch (error) {
         logger.error(`Error in event handler for "${event}":`, error);
       }
-    });
+    };
+    this.handlerMap.set(handler as EventHandler<any>, wrappedHandler as (...args: unknown[]) => void);
+    this.emitter.on(event, wrappedHandler);
   }
 
   /**
@@ -76,7 +82,11 @@ export class EventBus implements IEventBus {
    */
   off<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`Event listener removed: ${event}`);
-    this.emitter.off(event, handler as (...args: unknown[]) => void);
+    const wrappedHandler = this.handlerMap.get(handler as EventHandler<any>);
+    if (wrappedHandler) {
+      this.emitter.off(event, wrappedHandler);
+      this.handlerMap.delete(handler as EventHandler<any>);
+    }
   }
 
   /**

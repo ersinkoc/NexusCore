@@ -5,6 +5,9 @@ import { AuthenticatedRequest, UserRole } from '@nexuscore/types';
 import { UnauthorizedError, ForbiddenError } from '../../core/errors';
 import { JWTService } from '../../shared/services';
 
+// Re-export types for convenience
+export type { AuthenticatedRequest };
+
 /**
  * Authentication Middleware
  * Verifies JWT access token and attaches user to request

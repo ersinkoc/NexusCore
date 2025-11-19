@@ -16,14 +16,32 @@ jest.mock('../../../core/logger', () => ({
   },
 }));
 
+// Mock ioredis
+jest.mock('ioredis', () => {
+  class RedisMock {
+    async ping() {
+      return 'PONG';
+    }
+    async quit() {
+      return 'OK';
+    }
+    disconnect() {
+      return;
+    }
+    async connect() {
+      return;
+    }
+  }
+  return RedisMock;
+});
+
 describe('HealthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    HealthService.initializeRedis();
   });
 
   afterEach(async () => {
-    await HealthService.cleanup();
+    // Skip cleanup in tests
   });
 
   describe('performHealthCheck', () => {

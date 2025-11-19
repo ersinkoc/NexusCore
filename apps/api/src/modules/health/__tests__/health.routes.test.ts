@@ -3,6 +3,23 @@ import express, { Express } from 'express';
 import healthRoutes from '../health.routes';
 import { HealthService } from '../health.service';
 
+// Mock prisma
+jest.mock('@nexuscore/db', () => ({
+  prisma: {
+    $queryRaw: jest.fn(),
+  },
+}));
+
+// Mock ioredis
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    ping: jest.fn().mockResolvedValue('PONG'),
+    quit: jest.fn().mockResolvedValue('OK'),
+    disconnect: jest.fn(),
+    connect: jest.fn().mockResolvedValue(undefined),
+  }));
+});
+
 // Mock HealthService
 jest.mock('../health.service');
 
@@ -139,7 +156,7 @@ describe('Health Routes Integration Tests', () => {
         mockHealthCheck
       );
 
-      const response = await request(app).get('/health').expect(200);
+      const response = await request(app).get('/health').expect(503);
 
       expect(response.body.status).toBe('unhealthy');
       expect(response.body.checks.database.status).toBe('down');
@@ -220,13 +237,14 @@ describe('Health Routes Integration Tests', () => {
     });
   });
 
-  describe('GET /health/liveness', () => {
-    it('should return OK for liveness probe', async () => {
+  describe('GET /health/live', () => {
+    it('should return alive status for liveness probe', async () => {
       (HealthService.livenessCheck as jest.Mock).mockResolvedValue(true);
 
-      const response = await request(app).get('/health/liveness').expect(200);
+      const response = await request(app).get('/health/live').expect(200);
 
-      expect(response.body).toEqual({ status: 'ok' });
+      expect(response.body.status).toBe('alive');
+      expect(response.body).toHaveProperty('timestamp');
       expect(HealthService.livenessCheck).toHaveBeenCalled();
     });
 
@@ -234,36 +252,38 @@ describe('Health Routes Integration Tests', () => {
       // Liveness check should always pass unless the app is completely dead
       (HealthService.livenessCheck as jest.Mock).mockResolvedValue(true);
 
-      const response = await request(app).get('/health/liveness').expect(200);
+      const response = await request(app).get('/health/live').expect(200);
 
-      expect(response.body.status).toBe('ok');
+      expect(response.body.status).toBe('alive');
     });
   });
 
-  describe('GET /health/readiness', () => {
-    it('should return OK when service is ready', async () => {
+  describe('GET /health/ready', () => {
+    it('should return ready status when service is ready', async () => {
       (HealthService.readinessCheck as jest.Mock).mockResolvedValue(true);
 
-      const response = await request(app).get('/health/readiness').expect(200);
+      const response = await request(app).get('/health/ready').expect(200);
 
-      expect(response.body).toEqual({ status: 'ready' });
+      expect(response.body.status).toBe('ready');
+      expect(response.body).toHaveProperty('timestamp');
       expect(HealthService.readinessCheck).toHaveBeenCalled();
     });
 
     it('should return 503 when service is not ready', async () => {
       (HealthService.readinessCheck as jest.Mock).mockResolvedValue(false);
 
-      const response = await request(app).get('/health/readiness').expect(503);
+      const response = await request(app).get('/health/ready').expect(503);
 
-      expect(response.body).toEqual({ status: 'not ready' });
+      expect(response.body.status).toBe('not_ready');
+      expect(response.body).toHaveProperty('timestamp');
     });
 
-    it('should return not ready when database is unavailable', async () => {
+    it('should return not_ready when database is unavailable', async () => {
       (HealthService.readinessCheck as jest.Mock).mockResolvedValue(false);
 
-      const response = await request(app).get('/health/readiness').expect(503);
+      const response = await request(app).get('/health/ready').expect(503);
 
-      expect(response.body.status).toBe('not ready');
+      expect(response.body.status).toBe('not_ready');
     });
   });
 });

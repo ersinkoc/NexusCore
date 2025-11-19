@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 
 import { JWTPayload } from '@nexuscore/types';
 
@@ -20,7 +20,7 @@ export class JWTService {
   static generateAccessToken(payload: JWTPayload): string {
     return jwt.sign(payload, this.ACCESS_SECRET, {
       expiresIn: this.ACCESS_EXPIRY,
-    });
+    } as jwt.SignOptions);
   }
 
   /**
@@ -29,7 +29,7 @@ export class JWTService {
   static generateRefreshToken(payload: JWTPayload): string {
     return jwt.sign(payload, this.REFRESH_SECRET, {
       expiresIn: this.REFRESH_EXPIRY,
-    });
+    } as jwt.SignOptions);
   }
 
   /**
