@@ -1,0 +1,35 @@
+# GitHub Sponsors configuration
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# Supported platforms:
+# - github: [username1, username2]
+# - patreon: username
+# - open_collective: username
+# - ko_fi: username
+# - tidelift: npm/package-name
+# - community_bridge: project-name
+# - liberapay: username
+# - issuehunt: username
+# - buy_me_a_coffee: username
+# - custom: ["https://example.com", "https://example2.com"]
+
+# Replace with your own sponsorship information
+# Uncomment and update the platforms you want to use
+
+# GitHub Sponsors (recommended)
+# github: [your-github-username]
+
+# Patreon
+# patreon: your-patreon-username
+
+# Open Collective
+# open_collective: nexuscore
+
+# Ko-fi
+# ko_fi: your-kofi-username
+
+# Buy Me a Coffee
+# buy_me_a_coffee: your-username
+
+# Custom sponsorship URLs
+# custom: ["https://paypal.me/yourname", "https://www.buymeacoffee.com/yourname"]

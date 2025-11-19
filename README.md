@@ -114,14 +114,36 @@ Standardized error responses:
 
 ---
 
-## Getting Started
+## Quick Start with CLI
+
+The fastest way to start a new NexusCore project:
+
+```bash
+npx create-nexuscore my-app
+cd my-app
+pnpm docker:up
+pnpm db:push
+pnpm --filter @nexuscore/db seed
+pnpm dev
+```
+
+The CLI will:
+- ✅ Clone the latest NexusCore template
+- ✅ Generate environment files with secure secrets
+- ✅ Install dependencies
+- ✅ Initialize git repository
+- ✅ Set up your project structure
+
+---
+
+## Getting Started (Manual Setup)
 
 ### Prerequisites
 - Node.js 18+
 - pnpm 8+
 - Docker & Docker Compose (optional but recommended)
 
-### Quick Start
+### Manual Installation
 
 1. **Clone the repository**
    ```bash
@@ -301,10 +323,13 @@ curl http://localhost:4000/api/users \
 - [x] Zustand store for global auth state
 - [x] React Hook Form + Zod validation
 
-### Phase 5: CLI Tool
-- [ ] Interactive scaffolding
-- [ ] Template generation
-- [ ] Package as `npx create-nexuscore`
+### Phase 5: CLI Tool ✅
+- [x] Interactive scaffolding with prompts
+- [x] Template cloning and configuration
+- [x] Environment file generation with secure secrets
+- [x] Git initialization
+- [x] Package manager support (pnpm, npm, yarn)
+- [x] Available as `npx create-nexuscore`
 
 ---
 
