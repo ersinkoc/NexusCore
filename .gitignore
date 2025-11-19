@@ -65,3 +65,6 @@ docker-compose.override.yml
 .temp
 tmp
 temp
+
+
+pnpm-lock.yaml
