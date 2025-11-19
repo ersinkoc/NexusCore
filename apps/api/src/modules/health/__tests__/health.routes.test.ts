@@ -73,9 +73,7 @@ describe('Health Routes Integration Tests', () => {
         },
       };
 
-      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(
-        mockHealthCheck
-      );
+      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(mockHealthCheck);
 
       const response = await request(app).get('/health').expect(200);
 
@@ -113,9 +111,7 @@ describe('Health Routes Integration Tests', () => {
         },
       };
 
-      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(
-        mockHealthCheck
-      );
+      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(mockHealthCheck);
 
       const response = await request(app).get('/health').expect(200);
 
@@ -152,9 +148,7 @@ describe('Health Routes Integration Tests', () => {
         },
       };
 
-      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(
-        mockHealthCheck
-      );
+      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(mockHealthCheck);
 
       const response = await request(app).get('/health').expect(503);
 
@@ -184,9 +178,7 @@ describe('Health Routes Integration Tests', () => {
         },
       };
 
-      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(
-        mockHealthCheck
-      );
+      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(mockHealthCheck);
 
       const response = await request(app).get('/health').expect(200);
 
@@ -223,17 +215,13 @@ describe('Health Routes Integration Tests', () => {
         },
       };
 
-      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(
-        mockHealthCheck
-      );
+      (HealthService.performHealthCheck as jest.Mock).mockResolvedValue(mockHealthCheck);
 
       const response = await request(app).get('/health').expect(200);
 
       expect(response.body.checks.memory.status).toBe('down');
       expect(response.body.checks.memory.message).toContain('high');
-      expect(response.body.checks.memory.details.usagePercent).toBeGreaterThan(
-        90
-      );
+      expect(response.body.checks.memory.details.usagePercent).toBeGreaterThan(90);
     });
   });
 
@@ -284,6 +272,50 @@ describe('Health Routes Integration Tests', () => {
       const response = await request(app).get('/health/ready').expect(503);
 
       expect(response.body.status).toBe('not_ready');
+    });
+
+    it('should handle readiness check errors gracefully', async () => {
+      (HealthService.readinessCheck as jest.Mock).mockRejectedValue(
+        new Error('Connection timeout')
+      );
+
+      const response = await request(app).get('/health/ready').expect(503);
+
+      expect(response.body.status).toBe('not_ready');
+      expect(response.body).toHaveProperty('timestamp');
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should handle health check errors gracefully', async () => {
+      (HealthService.performHealthCheck as jest.Mock).mockRejectedValue(
+        new Error('Unexpected error')
+      );
+
+      const response = await request(app).get('/health').expect(503);
+
+      expect(response.body.status).toBe('unhealthy');
+      expect(response.body).toHaveProperty('timestamp');
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toBe('Health check failed');
+    });
+
+    it('should handle liveness check errors', async () => {
+      (HealthService.livenessCheck as jest.Mock).mockRejectedValue(new Error('Fatal error'));
+
+      const response = await request(app).get('/health/live').expect(503);
+
+      expect(response.body.status).toBe('dead');
+      expect(response.body).toHaveProperty('timestamp');
+    });
+
+    it('should return 503 when liveness check returns false', async () => {
+      (HealthService.livenessCheck as jest.Mock).mockResolvedValue(false);
+
+      const response = await request(app).get('/health/live').expect(503);
+
+      expect(response.body.status).toBe('dead');
+      expect(response.body).toHaveProperty('timestamp');
     });
   });
 });
