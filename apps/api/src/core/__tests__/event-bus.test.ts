@@ -103,8 +103,8 @@ describe('EventBus', () => {
       const eventName = 'clear.event';
       let count = 0;
 
-      eventBus.on(eventName, () => count++);
-      eventBus.on(eventName, () => count++);
+      eventBus.on(eventName, () => { count++; });
+      eventBus.on(eventName, () => { count++; });
 
       eventBus.emit(eventName, {});
       expect(count).toBe(2);
@@ -120,8 +120,8 @@ describe('EventBus', () => {
       let count1 = 0;
       let count2 = 0;
 
-      eventBus.on('event1', () => count1++);
-      eventBus.on('event2', () => count2++);
+      eventBus.on('event1', () => { count1++; });
+      eventBus.on('event2', () => { count2++; });
 
       eventBus.emit('event1', {});
       eventBus.emit('event2', {});

@@ -25,7 +25,7 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/HealthCheck'
  */
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const healthCheck = await HealthService.performHealthCheck();
 
@@ -72,7 +72,7 @@ router.get('/', async (req: Request, res: Response) => {
  *       503:
  *         description: Application is not responding
  */
-router.get('/live', async (req: Request, res: Response) => {
+router.get('/live', async (_req: Request, res: Response) => {
   try {
     const isAlive = await HealthService.livenessCheck();
 
@@ -120,7 +120,7 @@ router.get('/live', async (req: Request, res: Response) => {
  *       503:
  *         description: Application is not ready
  */
-router.get('/ready', async (req: Request, res: Response) => {
+router.get('/ready', async (_req: Request, res: Response) => {
   try {
     const isReady = await HealthService.readinessCheck();
 

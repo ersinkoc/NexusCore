@@ -1,9 +1,17 @@
+import 'express-async-errors';
 import request from 'supertest';
 import express, { Express } from 'express';
 import postsRoutes from '../posts.routes';
 import { PostsService } from '../posts.service';
 import { PostStatus } from '@nexuscore/types';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../core/errors';
+
+// Mock prisma
+jest.mock('@nexuscore/db', () => ({
+  prisma: {
+    post: {},
+  },
+}));
 
 // Mock PostsService
 jest.mock('../posts.service');
@@ -45,9 +53,9 @@ describe('Posts Routes Integration Tests', () => {
     app.use(
       (
         err: any,
-        req: express.Request,
+        _req: express.Request,
         res: express.Response,
-        next: express.NextFunction
+        _next: express.NextFunction
       ) => {
         if (err instanceof ValidationError) {
           return res.status(400).json({ error: err.message });
@@ -140,14 +148,15 @@ describe('Posts Routes Integration Tests', () => {
         pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
       };
 
+      const validUuid = '550e8400-e29b-41d4-a716-446655440000';
       (PostsService.findMany as jest.Mock).mockResolvedValue(mockResponse);
 
-      await request(app).get('/posts?authorId=user-123').expect(200);
+      await request(app).get(`/posts?authorId=${validUuid}`).expect(200);
 
       expect(PostsService.findMany).toHaveBeenCalledWith({
         page: 1,
         limit: 10,
-        authorId: 'user-123',
+        authorId: validUuid,
       });
     });
 
@@ -267,7 +276,7 @@ describe('Posts Routes Integration Tests', () => {
       };
 
       (PostsService.create as jest.Mock).mockRejectedValue(
-        new ValidationError('Title is required')
+        new ValidationError('Invalid post data')
       );
 
       const response = await request(app)
@@ -275,7 +284,7 @@ describe('Posts Routes Integration Tests', () => {
         .send(invalidData)
         .expect(400);
 
-      expect(response.body.error).toContain('required');
+      expect(response.body.error).toContain('Invalid post data');
     });
 
     it('should return 400 for missing content', async () => {
@@ -285,7 +294,7 @@ describe('Posts Routes Integration Tests', () => {
       };
 
       (PostsService.create as jest.Mock).mockRejectedValue(
-        new ValidationError('Content is required')
+        new ValidationError('Invalid post data')
       );
 
       const response = await request(app)
@@ -293,7 +302,7 @@ describe('Posts Routes Integration Tests', () => {
         .send(invalidData)
         .expect(400);
 
-      expect(response.body.error).toContain('required');
+      expect(response.body.error).toContain('Invalid post data');
     });
   });
 
