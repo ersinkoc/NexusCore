@@ -9,7 +9,7 @@ import { AuthEventHandlers } from './auth.events';
  * Authentication Module
  * Handles user registration, login, logout, and JWT token management
  */
-export const AuthModule: IModule = {
+const AuthModule: IModule = {
   name: 'auth',
   routes: AuthRoutes,
   events: AuthEventHandlers,
@@ -24,3 +24,6 @@ export const AuthModule: IModule = {
 // Export middleware for use in other modules
 export * from './auth.middleware';
 export * from './auth.service';
+
+// Default export for module loader
+export default AuthModule;

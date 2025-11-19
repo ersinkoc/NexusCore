@@ -1,4 +1,4 @@
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 import { JWTPayload } from '@nexuscore/types';
 
@@ -14,7 +14,7 @@ export class JWTService {
     if (!secret) {
       throw new Error(
         'JWT_ACCESS_SECRET environment variable is required. ' +
-        'Please set it in your .env file for security.'
+          'Please set it in your .env file for security.'
       );
     }
     return secret;
@@ -25,7 +25,7 @@ export class JWTService {
     if (!secret) {
       throw new Error(
         'JWT_REFRESH_SECRET environment variable is required. ' +
-        'Please set it in your .env file for security.'
+          'Please set it in your .env file for security.'
       );
     }
     return secret;

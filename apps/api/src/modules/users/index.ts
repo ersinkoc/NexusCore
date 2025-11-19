@@ -9,7 +9,7 @@ import UsersRoutes from './users.routes';
  * Handles user management operations (CRUD)
  * Demonstrates RBAC with different permission levels
  */
-export const UsersModule: IModule = {
+const UsersModule: IModule = {
   name: 'users',
   routes: UsersRoutes,
   init: async () => {
@@ -21,3 +21,6 @@ export const UsersModule: IModule = {
 };
 
 export * from './users.service';
+
+// Default export for module loader
+export default UsersModule;

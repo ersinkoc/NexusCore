@@ -26,7 +26,6 @@
   },
   "devDependencies": {
     "@nexuscore/config": "workspace:*",
-    "@types/dompurify": "^3.2.0",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
