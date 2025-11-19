@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@nexuscore/config": "workspace:*",
+    "@types/express": "^4.17.21",
     "@types/node": "^20.11.16",
     "typescript": "^5.3.3"
   }
