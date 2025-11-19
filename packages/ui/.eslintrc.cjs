@@ -10,6 +10,6 @@ module.exports = {
   },
   env: {
     ...sharedConfig.env,
-    node: true,
+    browser: true,
   },
 };

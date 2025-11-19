@@ -5,6 +5,7 @@
   "description": "Shared configuration for ESLint and TypeScript",
   "main": "index.js",
   "exports": {
+    ".": "./index.js",
     "./eslint-preset": "./eslint-preset.js",
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tsconfig.node.json": "./tsconfig.node.json",

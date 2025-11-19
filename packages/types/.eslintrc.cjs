@@ -1,6 +1,10 @@
+// Use shared ESLint config from @nexuscore/config package
+const sharedConfig = require('@nexuscore/config').eslint;
+
 module.exports = {
-  extends: ['@nexuscore/config/eslint-preset'],
+  ...sharedConfig,
   parserOptions: {
+    ...sharedConfig.parserOptions,
     project: './tsconfig.json',
     tsconfigRootDir: __dirname,
   },
