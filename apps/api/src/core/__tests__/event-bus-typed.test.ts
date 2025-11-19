@@ -1,4 +1,5 @@
 import { EventBus } from '../event-bus';
+import { UserRole } from '@nexuscore/types';
 
 describe('EventBus (Type-Safe)', () => {
   let eventBus: EventBus;
@@ -16,10 +17,10 @@ describe('EventBus (Type-Safe)', () => {
       const payload = {
         userId: 'user-123',
         email: 'test@example.com',
-        role: 'USER' as const,
+        role: UserRole.USER,
       };
 
-      eventBus.onTyped('auth.registered', (data) => {
+      eventBus.onTyped('auth.registered', (data: any) => {
         expect(data).toEqual(payload);
         done();
       });
@@ -179,14 +180,14 @@ describe('EventBus (Type-Safe)', () => {
       let count1 = 0;
       let count2 = 0;
 
-      eventBus.onTyped('auth.registered', () => count1++);
-      eventBus.onTyped('auth.registered', () => count1++);
-      eventBus.onTyped('auth.login', () => count2++);
+      eventBus.onTyped('auth.registered', () => { count1++; });
+      eventBus.onTyped('auth.registered', () => { count1++; });
+      eventBus.onTyped('auth.login', () => { count2++; });
 
       eventBus.emitTyped('auth.registered', {
         userId: 'user-123',
         email: 'test@example.com',
-        role: 'USER' as const,
+        role: UserRole.USER,
       });
       eventBus.emitTyped('auth.login', {
         userId: 'user-123',
@@ -203,7 +204,7 @@ describe('EventBus (Type-Safe)', () => {
       eventBus.emitTyped('auth.registered', {
         userId: 'user-123',
         email: 'test@example.com',
-        role: 'USER' as const,
+        role: UserRole.USER,
       });
       eventBus.emitTyped('auth.login', {
         userId: 'user-123',
@@ -218,8 +219,8 @@ describe('EventBus (Type-Safe)', () => {
       let count1 = 0;
       let count2 = 0;
 
-      eventBus.on('event1', () => count1++);
-      eventBus.on('event2', () => count2++);
+      eventBus.on('event1', () => { count1++; });
+      eventBus.on('event2', () => { count2++; });
 
       eventBus.emit('event1', {});
       eventBus.emit('event2', {});

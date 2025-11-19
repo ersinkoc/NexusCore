@@ -75,13 +75,13 @@ describe('HealthService', () => {
 
       // Mock high memory usage
       const originalMemoryUsage = process.memoryUsage;
-      process.memoryUsage = jest.fn().mockReturnValue({
+      process.memoryUsage = jest.fn(() => ({
         heapUsed: 950 * 1024 * 1024, // 950 MB
         heapTotal: 1000 * 1024 * 1024, // 1000 MB (95% usage)
         external: 0,
         rss: 0,
         arrayBuffers: 0,
-      });
+      })) as any;
 
       const result = await HealthService.performHealthCheck();
 

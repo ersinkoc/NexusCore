@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import {
   IEventBus,
   EventHandler,
-  EventPayload as GenericEventPayload,
+  GenericEventPayload,
   EventName,
   EventPayload,
   TypedEventHandler,
