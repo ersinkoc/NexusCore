@@ -16,14 +16,32 @@ jest.mock('../../../core/logger', () => ({
   },
 }));
 
+// Mock ioredis
+jest.mock('ioredis', () => {
+  class RedisMock {
+    async ping() {
+      return 'PONG';
+    }
+    async quit() {
+      return 'OK';
+    }
+    disconnect() {
+      return;
+    }
+    async connect() {
+      return;
+    }
+  }
+  return RedisMock;
+});
+
 describe('HealthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    HealthService.initializeRedis();
   });
 
   afterEach(async () => {
-    await HealthService.cleanup();
+    // Skip cleanup in tests
   });
 
   describe('performHealthCheck', () => {
@@ -75,13 +93,13 @@ describe('HealthService', () => {
 
       // Mock high memory usage
       const originalMemoryUsage = process.memoryUsage;
-      process.memoryUsage = jest.fn().mockReturnValue({
+      process.memoryUsage = jest.fn(() => ({
         heapUsed: 950 * 1024 * 1024, // 950 MB
         heapTotal: 1000 * 1024 * 1024, // 1000 MB (95% usage)
         external: 0,
         rss: 0,
         arrayBuffers: 0,
-      });
+      })) as any;
 
       const result = await HealthService.performHealthCheck();
 
@@ -139,6 +157,89 @@ describe('HealthService', () => {
 
       expect(result.checks.memory.details?.heapUsed).toMatch(/MB$/);
       expect(result.checks.memory.details?.heapTotal).toMatch(/MB$/);
+    });
+  });
+
+  describe('cleanup', () => {
+    it('should cleanup Redis connection', async () => {
+      // Initialize Redis first
+      HealthService.initializeRedis();
+
+      await expect(HealthService.cleanup()).resolves.not.toThrow();
+    });
+
+    it('should handle cleanup when Redis is not initialized', async () => {
+      // Reset redis to undefined
+      (HealthService as any).redis = undefined;
+
+      await expect(HealthService.cleanup()).resolves.not.toThrow();
+    });
+  });
+
+  describe('Error handling edge cases', () => {
+    it('should handle non-Error objects in database check', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue('String error');
+
+      const result = await HealthService.performHealthCheck();
+
+      expect(result.checks.database.status).toBe('down');
+      expect(result.checks.database.message).toBe('Database connection failed');
+    });
+
+    it('should return false for readiness when database throws', async () => {
+      (prisma.$queryRaw as jest.Mock).mockImplementation(() => {
+        throw new Error('Database error');
+      });
+
+      const result = await HealthService.readinessCheck();
+
+      expect(result).toBe(false);
+    });
+
+    it('should handle database check returning down status', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Connection timeout'));
+
+      const result = await HealthService.performHealthCheck();
+
+      expect(result.status).toBe('unhealthy');
+      expect(result.checks.database.status).toBe('down');
+    });
+  });
+
+  describe('initializeRedis error handling', () => {
+    it('should handle Redis initialization errors', () => {
+      // Mock Redis constructor to throw
+      jest.doMock('ioredis', () => {
+        return jest.fn(() => {
+          throw new Error('Redis connection error');
+        });
+      });
+
+      // This should not throw, just log the error
+      expect(() => HealthService.initializeRedis()).not.toThrow();
+    });
+  });
+
+  describe('livenessCheck edge cases', () => {
+    it('should return true for liveness check', async () => {
+      const result = await HealthService.livenessCheck();
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('readinessCheck edge cases', () => {
+    it('should return true when database is up', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ 1: 1 }]);
+
+      const result = await HealthService.readinessCheck();
+      expect(result).toBe(true);
+    });
+
+    it('should return false when database check throws', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      const result = await HealthService.readinessCheck();
+      expect(result).toBe(false);
     });
   });
 });

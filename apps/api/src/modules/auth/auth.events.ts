@@ -40,8 +40,17 @@ export async function onUserLogin(payload: { userId: string; email: string }) {
 
 /**
  * Export all event handlers
+ * Wrapped to match IModule events signature
  */
-export const AuthEventHandlers = {
-  'auth.registered': onUserRegistered,
-  'auth.login': onUserLogin,
+export const AuthEventHandlers: Record<string, (...args: unknown[]) => void | Promise<void>> = {
+  'auth.registered': (...args: unknown[]) =>
+    onUserRegistered(
+      args[0] as {
+        userId: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+      }
+    ),
+  'auth.login': (...args: unknown[]) => onUserLogin(args[0] as { userId: string; email: string }),
 };

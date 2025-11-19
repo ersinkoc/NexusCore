@@ -1,4 +1,15 @@
 import { EventBus } from '../event-bus';
+import { logger } from '../logger';
+
+// Mock logger
+jest.mock('../logger', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
 
 describe('EventBus', () => {
   let eventBus: EventBus;
@@ -16,7 +27,7 @@ describe('EventBus', () => {
       const eventName = 'test.event';
       const payload = { message: 'Hello World' };
 
-      eventBus.on(eventName, (data) => {
+      eventBus.on(eventName, (data: any) => {
         expect(data).toEqual(payload);
         done();
       });
@@ -47,7 +58,7 @@ describe('EventBus', () => {
       const payload = { data: 'test' };
       let received = false;
 
-      eventBus.on(eventName, async (data) => {
+      eventBus.on(eventName, async (data: any) => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         received = true;
         expect(data).toEqual(payload);
@@ -77,6 +88,24 @@ describe('EventBus', () => {
 
       expect(count).toBe(1);
     });
+
+    it('should handle errors in once handler gracefully', async () => {
+      const eventName = 'once.error.event';
+      const errorHandler = jest.fn(() => {
+        throw new Error('Handler error');
+      });
+
+      eventBus.once(eventName, errorHandler);
+
+      // Emit event - error should be caught and logged
+      await eventBus.emit(eventName, { test: 'data' });
+
+      expect(errorHandler).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('one-time'),
+        expect.any(Error)
+      );
+    });
   });
 
   describe('off', () => {
@@ -103,8 +132,12 @@ describe('EventBus', () => {
       const eventName = 'clear.event';
       let count = 0;
 
-      eventBus.on(eventName, () => count++);
-      eventBus.on(eventName, () => count++);
+      eventBus.on(eventName, () => {
+        count++;
+      });
+      eventBus.on(eventName, () => {
+        count++;
+      });
 
       eventBus.emit(eventName, {});
       expect(count).toBe(2);
@@ -120,8 +153,12 @@ describe('EventBus', () => {
       let count1 = 0;
       let count2 = 0;
 
-      eventBus.on('event1', () => count1++);
-      eventBus.on('event2', () => count2++);
+      eventBus.on('event1', () => {
+        count1++;
+      });
+      eventBus.on('event2', () => {
+        count2++;
+      });
 
       eventBus.emit('event1', {});
       eventBus.emit('event2', {});

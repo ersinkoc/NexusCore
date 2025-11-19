@@ -1,4 +1,4 @@
-import { IModule } from '../../core/module-loader';
+import { IModule } from '@nexuscore/types';
 import { logger } from '../../core/logger';
 import PostsRoutes from './posts.routes';
 import { PostEventHandlers } from './posts.events';

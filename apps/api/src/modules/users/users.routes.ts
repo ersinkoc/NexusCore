@@ -5,7 +5,7 @@ import { UserRole } from '@nexuscore/types';
 import { requireAuth, requireRole } from '../auth/auth.middleware';
 import { UsersController } from './users.controller';
 
-const router = Router();
+const router: Router = Router();
 const usersController = new UsersController();
 
 /**

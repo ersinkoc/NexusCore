@@ -5,11 +5,14 @@ import { AuthenticatedRequest, UserRole } from '@nexuscore/types';
 import { UnauthorizedError, ForbiddenError } from '../../core/errors';
 import { JWTService } from '../../shared/services';
 
+// Re-export types for convenience
+export type { AuthenticatedRequest };
+
 /**
  * Authentication Middleware
  * Verifies JWT access token and attaches user to request
  */
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -43,7 +46,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
  * router.get('/admin', requireAuth, requireRole(['admin']), handler);
  */
 export function requireRole(roles: UserRole[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction) => {
     try {
       const user = (req as AuthenticatedRequest).user;
 
@@ -68,7 +71,7 @@ export function requireRole(roles: UserRole[]) {
  * Optional Authentication Middleware
  * Attaches user to request if token is valid, but doesn't fail if not
  */
-export function optionalAuth(req: Request, res: Response, next: NextFunction) {
+export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
 

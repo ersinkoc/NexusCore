@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { PostsService } from './posts.service';
-import { requireAuth } from '../auth/auth.middleware';
+import { requireAuth, AuthenticatedRequest } from '../auth/auth.middleware';
 import { createPostSchema, updatePostSchema, queryPostsSchema } from '@nexuscore/types';
 import { ValidationError } from '../../core/errors';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger
@@ -57,6 +57,30 @@ router.get('/', async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /posts/slug/{slug}:
+ *   get:
+ *     summary: Get post by slug
+ *     description: Retrieve a single post by its slug
+ *     tags: [Posts]
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Post retrieved successfully
+ *       404:
+ *         description: Post not found
+ */
+router.get('/slug/:slug', async (req: Request, res: Response) => {
+  const post = await PostsService.findBySlug(req.params.slug);
+  res.json(post);
+});
+
+/**
+ * @swagger
  * /posts:
  *   post:
  *     summary: Create a new post
@@ -89,7 +113,7 @@ router.get('/', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-router.post('/', requireAuth, async (req: Request, res: Response) => {
+router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = createPostSchema.parse(req.body);
     const post = await PostsService.create(req.user!.userId, data);
@@ -165,15 +189,10 @@ router.get('/:id', async (req: Request, res: Response) => {
  *       404:
  *         description: Post not found
  */
-router.put('/:id', requireAuth, async (req: Request, res: Response) => {
+router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = updatePostSchema.parse(req.body);
-    const post = await PostsService.update(
-      req.params.id,
-      req.user!.userId,
-      req.user!.role,
-      data
-    );
+    const post = await PostsService.update(req.params.id, req.user!.userId, req.user!.role, data);
     res.json(post);
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {
@@ -207,7 +226,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
  *       404:
  *         description: Post not found
  */
-router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const result = await PostsService.delete(req.params.id, req.user!.userId, req.user!.role);
   res.json(result);
 });
@@ -236,7 +255,7 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
  *       404:
  *         description: Post not found
  */
-router.post('/:id/publish', requireAuth, async (req: Request, res: Response) => {
+router.post('/:id/publish', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const post = await PostsService.publish(req.params.id, req.user!.userId, req.user!.role);
   res.json(post);
 });

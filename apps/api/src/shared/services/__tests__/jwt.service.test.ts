@@ -1,5 +1,6 @@
 import { JWTService } from '../jwt.service';
 import { UserRole } from '@nexuscore/types';
+import * as jwt from 'jsonwebtoken';
 
 describe('JWTService', () => {
   const mockPayload = {
@@ -60,6 +61,21 @@ describe('JWTService', () => {
         JWTService.verifyAccessToken('');
       }).toThrow();
     });
+
+    it('should throw "Access token expired" for expired token', () => {
+      // Create expired token by signing with -1s expiry
+      const expiredToken = jwt.sign(
+        mockPayload,
+        process.env.JWT_ACCESS_SECRET || 'access-secret-key',
+        {
+          expiresIn: '-1s',
+        }
+      );
+
+      expect(() => {
+        JWTService.verifyAccessToken(expiredToken);
+      }).toThrow('Access token expired');
+    });
   });
 
   describe('verifyRefreshToken', () => {
@@ -75,6 +91,20 @@ describe('JWTService', () => {
       expect(() => {
         JWTService.verifyRefreshToken('invalid.token.here');
       }).toThrow();
+    });
+
+    it('should throw "Refresh token expired" for expired token', () => {
+      const expiredToken = jwt.sign(
+        mockPayload,
+        process.env.JWT_REFRESH_SECRET || 'refresh-secret-key',
+        {
+          expiresIn: '-1s',
+        }
+      );
+
+      expect(() => {
+        JWTService.verifyRefreshToken(expiredToken);
+      }).toThrow('Refresh token expired');
     });
   });
 
@@ -92,6 +122,44 @@ describe('JWTService', () => {
       const decoded = JWTService.decode('invalid.token');
 
       expect(decoded).toBeNull();
+    });
+  });
+
+  describe('Environment variable fallbacks', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+      originalEnv = { ...process.env };
+    });
+
+    afterAll(() => {
+      process.env = originalEnv;
+    });
+
+    it('should use default secrets when env vars are not set', () => {
+      // Clear env vars
+      delete process.env.JWT_ACCESS_SECRET;
+      delete process.env.JWT_REFRESH_SECRET;
+      delete process.env.JWT_ACCESS_EXPIRY;
+      delete process.env.JWT_REFRESH_EXPIRY;
+
+      // Force re-evaluation by creating tokens
+      const accessToken = JWTService.generateAccessToken(mockPayload);
+      const refreshToken = JWTService.generateRefreshToken(mockPayload);
+
+      // Both tokens should be created successfully with defaults
+      expect(accessToken).toBeDefined();
+      expect(refreshToken).toBeDefined();
+
+      // Verify they can be decoded
+      const decodedAccess = JWTService.decode(accessToken);
+      const decodedRefresh = JWTService.decode(refreshToken);
+
+      expect(decodedAccess?.userId).toBe(mockPayload.userId);
+      expect(decodedRefresh?.userId).toBe(mockPayload.userId);
+
+      // Restore
+      process.env = { ...originalEnv };
     });
   });
 });
