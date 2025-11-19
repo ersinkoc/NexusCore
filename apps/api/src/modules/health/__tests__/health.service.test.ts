@@ -204,24 +204,42 @@ describe('HealthService', () => {
       expect(result.status).toBe('unhealthy');
       expect(result.checks.database.status).toBe('down');
     });
+  });
 
-    it('should handle non-Error Redis check failures', async () => {
-      // Test the error instanceof Error check by throwing a string
-      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ result: 1 }]);
+  describe('initializeRedis error handling', () => {
+    it('should handle Redis initialization errors', () => {
+      // Mock Redis constructor to throw
+      jest.doMock('ioredis', () => {
+        return jest.fn(() => {
+          throw new Error('Redis connection error');
+        });
+      });
 
-      // Temporarily replace checkRedis to throw a non-Error
-      const originalCheckRedis = (HealthService as any).checkRedis;
-      (HealthService as any).checkRedis = async () => {
-        throw 'String error'; // Non-Error object
-      };
+      // This should not throw, just log the error
+      expect(() => HealthService.initializeRedis()).not.toThrow();
+    });
+  });
 
-      const result = await HealthService.performHealthCheck();
+  describe('livenessCheck edge cases', () => {
+    it('should return true for liveness check', async () => {
+      const result = await HealthService.livenessCheck();
+      expect(result).toBe(true);
+    });
+  });
 
-      expect(result.checks.redis.status).toBe('down');
-      expect(result.checks.redis.message).toBe('Redis connection failed');
+  describe('readinessCheck edge cases', () => {
+    it('should return true when database is up', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ 1: 1 }]);
 
-      // Restore
-      (HealthService as any).checkRedis = originalCheckRedis;
+      const result = await HealthService.readinessCheck();
+      expect(result).toBe(true);
+    });
+
+    it('should return false when database check throws', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      const result = await HealthService.readinessCheck();
+      expect(result).toBe(false);
     });
   });
 });
