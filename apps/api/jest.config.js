@@ -15,6 +15,7 @@ module.exports = {
     '!src/**/*.test.ts',
     '!src/**/*.spec.ts',
     '!src/__tests__/setup.ts',
+    '!src/index.ts', // Server bootstrap - not unit testable
   ],
   coverageThreshold: {
     global: {
