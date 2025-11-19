@@ -1,0 +1,16 @@
+version: '3.8'
+
+# Development-specific overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: dev123
+    ports:
+      - '5432:5432'
+
+  redis:
+    command: redis-server --appendonly yes --requirepass dev123
+    ports:
+      - '6379:6379'

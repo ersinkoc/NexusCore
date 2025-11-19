@@ -1,0 +1,40 @@
+{
+  "name": "nexuscore",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Ultimate Node.js & React Boilerplate - Production-ready, modular, event-driven full-stack monorepo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ersinkoc/NexusCore.git"
+  },
+  "author": "NexusCore Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @nexuscore/db generate",
+    "db:push": "pnpm --filter @nexuscore/db push",
+    "db:migrate": "pnpm --filter @nexuscore/db migrate",
+    "db:studio": "pnpm --filter @nexuscore/db studio",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "api": "pnpm --filter @nexuscore/api dev",
+    "web": "pnpm --filter @nexuscore/web dev",
+    "cli": "pnpm --filter @nexuscore/cli dev"
+  },
+  "devDependencies": {
+    "@turbo/gen": "^1.12.0",
+    "prettier": "^3.2.5",
+    "turbo": "^1.12.0",
+    "typescript": "^5.3.3"
+  }
+}
