@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
+import { PostsList, PostView, PostForm } from './pages/Posts';
 import DashboardLayout from './components/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { UserRole } from '@nexuscore/types';
@@ -27,6 +28,18 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
+          {/* Posts routes (public for viewing, protected for editing) */}
+          <Route path="/posts" element={<PostsList />} />
+          <Route path="/posts/:id" element={<PostView />} />
+          <Route
+            path="/posts/:id/edit"
+            element={
+              <ProtectedRoute>
+                <PostForm />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Protected routes */}
           <Route
             path="/dashboard"
@@ -47,8 +60,8 @@ function App() {
             />
           </Route>
 
-          {/* Redirect root to dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Redirect root to posts */}
+          <Route path="/" element={<Navigate to="/posts" replace />} />
 
           {/* 404 */}
           <Route
