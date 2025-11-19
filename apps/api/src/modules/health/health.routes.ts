@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { HealthService } from './health.service';
 import { logger } from '../../core/logger';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger
