@@ -86,17 +86,18 @@ export class AuthController {
    * Refresh access token
    * POST /api/auth/refresh
    */
-  refresh = asyncHandler(async (req: Request, res: Response): Promise<any> => {
+  refresh = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: {
           code: 'UNAUTHORIZED',
           message: 'Refresh token not found',
         },
       });
+      return;
     }
 
     const result = await authService.refresh(refreshToken);

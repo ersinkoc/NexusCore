@@ -71,7 +71,8 @@ export class PostsService {
     const { page, limit, status, authorId, search } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    // Build where clause - let TypeScript infer the type for Prisma compatibility
+    const where: Record<string, unknown> = {};
 
     if (status) {
       where.status = status;
@@ -125,26 +126,28 @@ export class PostsService {
    */
   static async findById(id: string) {
     // Atomic increment and return updated post in single query
-    const post = await prisma.post.update({
-      where: { id },
-      data: { viewCount: { increment: 1 } },
-      include: {
-        author: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
+    const post = await prisma.post
+      .update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
           },
         },
-      },
-    }).catch((error: any) => {
-      // If post not found, Prisma throws error
-      if (error.code === 'P2025') {
-        throw new NotFoundError('Post not found');
-      }
-      throw error;
-    });
+      })
+      .catch((error: any) => {
+        // If post not found, Prisma throws error
+        if (error.code === 'P2025') {
+          throw new NotFoundError('Post not found');
+        }
+        throw error;
+      });
 
     return post;
   }
@@ -155,26 +158,28 @@ export class PostsService {
    */
   static async findBySlug(slug: string) {
     // Atomic increment and return updated post in single query
-    const post = await prisma.post.update({
-      where: { slug },
-      data: { viewCount: { increment: 1 } },
-      include: {
-        author: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
+    const post = await prisma.post
+      .update({
+        where: { slug },
+        data: { viewCount: { increment: 1 } },
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
           },
         },
-      },
-    }).catch((error: any) => {
-      // If post not found, Prisma throws error
-      if (error.code === 'P2025') {
-        throw new NotFoundError('Post not found');
-      }
-      throw error;
-    });
+      })
+      .catch((error: any) => {
+        // If post not found, Prisma throws error
+        if (error.code === 'P2025') {
+          throw new NotFoundError('Post not found');
+        }
+        throw error;
+      });
 
     return post;
   }

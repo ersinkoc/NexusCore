@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { apiClient } from '../../lib/api-client';
 import { useAuthStore } from '../../store/auth.store';
 import { UserRole } from '@nexuscore/types';
@@ -31,7 +32,11 @@ export default function PostView() {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuthStore();
 
-  const { data: post, isLoading, error } = useQuery({
+  const {
+    data: post,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['post', id],
     queryFn: async () => {
       const response = await apiClient.get<Post>(`/posts/${id}`);
@@ -72,7 +77,8 @@ export default function PostView() {
     }
   };
 
-  const canEdit = isAuthenticated && (user?.userId === post?.author.id || user?.role === UserRole.ADMIN);
+  const canEdit =
+    isAuthenticated && (user?.userId === post?.author.id || user?.role === UserRole.ADMIN);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -95,6 +101,21 @@ export default function PostView() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const sanitizeContent = (content: string) => {
+    // Replace newlines with <br /> tags, then sanitize to prevent XSS
+    const htmlContent = content.replace(/\n/g, '<br />');
+    return DOMPurify.sanitize(htmlContent, {
+      ALLOWED_TAGS: ['br', 'p', 'b', 'i', 'em', 'strong', 'u', 'a'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
+    });
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    const first = firstName && firstName.length > 0 ? firstName[0].toUpperCase() : '';
+    const last = lastName && lastName.length > 0 ? lastName[0].toUpperCase() : '';
+    return first && last ? `${first}${last}` : first || last || '?';
   };
 
   if (error) {
@@ -143,7 +164,9 @@ export default function PostView() {
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-4xl font-bold text-gray-900">{post.title}</h1>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}
+              >
                 {post.status}
               </span>
             </div>
@@ -151,8 +174,7 @@ export default function PostView() {
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
                   <span className="text-blue-600 font-medium">
-                    {post.author.firstName[0]}
-                    {post.author.lastName[0]}
+                    {getInitials(post.author.firstName, post.author.lastName)}
                   </span>
                 </div>
                 <div>
@@ -160,7 +182,9 @@ export default function PostView() {
                     {post.author.firstName} {post.author.lastName}
                   </div>
                   <div className="text-xs">
-                    {post.publishedAt ? `Published ${formatDate(post.publishedAt)}` : `Created ${formatDate(post.createdAt)}`}
+                    {post.publishedAt
+                      ? `Published ${formatDate(post.publishedAt)}`
+                      : `Created ${formatDate(post.createdAt)}`}
                   </div>
                 </div>
               </div>
@@ -203,7 +227,7 @@ export default function PostView() {
       <article className="prose prose-lg max-w-none">
         <div
           className="whitespace-pre-wrap"
-          dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }}
+          dangerouslySetInnerHTML={{ __html: sanitizeContent(post.content) }}
         />
       </article>
 
@@ -228,9 +252,7 @@ export default function PostView() {
 
       {/* Footer */}
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <div className="text-xs text-gray-500">
-          Last updated: {formatDate(post.updatedAt)}
-        </div>
+        <div className="text-xs text-gray-500">Last updated: {formatDate(post.updatedAt)}</div>
       </div>
     </div>
   );

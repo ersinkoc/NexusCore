@@ -23,7 +23,11 @@ export class EventBus implements IEventBus {
 
   constructor() {
     this.emitter = new EventEmitter();
-    this.emitter.setMaxListeners(100); // Increase for multiple modules
+    // Configure max listeners from environment or use sensible default
+    const maxListeners = process.env.EVENT_BUS_MAX_LISTENERS
+      ? parseInt(process.env.EVENT_BUS_MAX_LISTENERS, 10)
+      : 100;
+    this.emitter.setMaxListeners(maxListeners);
     this.handlerMap = new WeakMap();
   }
 
@@ -57,7 +61,10 @@ export class EventBus implements IEventBus {
         logger.error(`Error in event handler for "${event}":`, error);
       }
     };
-    this.handlerMap.set(handler as EventHandler<any>, wrappedHandler as (...args: unknown[]) => void);
+    this.handlerMap.set(
+      handler as EventHandler<any>,
+      wrappedHandler as (...args: unknown[]) => void
+    );
     this.emitter.on(event, wrappedHandler);
   }
 
@@ -73,7 +80,10 @@ export class EventBus implements IEventBus {
         logger.error(`Error in event handler for "${event}":`, error);
       }
     };
-    this.handlerMap.set(handler as EventHandler<any>, wrappedHandler as (...args: unknown[]) => void);
+    this.handlerMap.set(
+      handler as EventHandler<any>,
+      wrappedHandler as (...args: unknown[]) => void
+    );
     this.emitter.on(event, wrappedHandler);
   }
 
@@ -94,13 +104,22 @@ export class EventBus implements IEventBus {
    */
   once<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`One-time event listener registered: ${event}`);
-    this.emitter.once(event, async (payload: T) => {
+    const wrappedHandler = async (payload: T) => {
       try {
         await handler(payload);
       } catch (error) {
         logger.error(`Error in one-time event handler for "${event}":`, error);
+      } finally {
+        // Clean up from handlerMap after execution
+        this.handlerMap.delete(handler as EventHandler<any>);
       }
-    });
+    };
+    // Store in handlerMap for proper cleanup
+    this.handlerMap.set(
+      handler as EventHandler<any>,
+      wrappedHandler as (...args: unknown[]) => void
+    );
+    this.emitter.once(event, wrappedHandler);
   }
 
   /**

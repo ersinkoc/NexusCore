@@ -1,7 +1,7 @@
 import { prisma } from '@nexuscore/db';
-import { PaginationInput, UserFilter } from '@nexuscore/types';
+import { PaginationInput, UserFilter, UserRole } from '@nexuscore/types';
 
-import { NotFoundError } from '../../core/errors';
+import { NotFoundError, ValidationError } from '../../core/errors';
 
 /**
  * Users Service
@@ -15,8 +15,8 @@ export class UsersService {
     const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {};
+    // Build where clause - let TypeScript infer the type for Prisma compatibility
+    const where: Record<string, unknown> = {};
 
     if (filter?.role) {
       where.role = filter.role;
@@ -99,6 +99,13 @@ export class UsersService {
 
     if (!user) {
       throw new NotFoundError('User not found');
+    }
+
+    // Validate role if provided
+    if (data.role && !Object.values(UserRole).includes(data.role as UserRole)) {
+      throw new ValidationError(
+        `Invalid role. Must be one of: ${Object.values(UserRole).join(', ')}`
+      );
     }
 
     const updatedUser = await prisma.user.update({

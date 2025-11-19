@@ -21,6 +21,11 @@ export class ModuleLoader {
   private app: Application;
   private modules: IModule[] = [];
   private modulesPath: string;
+  // Track event handlers for proper cleanup
+  private moduleEventHandlers: Map<
+    string,
+    Array<{ event: string; handler: (...args: unknown[]) => void | Promise<void> }>
+  > = new Map();
 
   constructor(app: Application) {
     this.app = app;
@@ -71,6 +76,13 @@ export class ModuleLoader {
       const moduleDefinition: IModule =
         moduleExports.default || moduleExports[`${moduleName}Module`];
 
+      // Log if fallback export style was used
+      if (!moduleExports.default && moduleExports[`${moduleName}Module`]) {
+        logger.warn(
+          `Module "${moduleName}" using fallback export style (named export instead of default)`
+        );
+      }
+
       if (!moduleDefinition || !moduleDefinition.name) {
         logger.warn(`Module "${moduleName}" does not export a valid module definition`);
         logger.debug(`Available exports:`, Object.keys(moduleExports));
@@ -104,10 +116,20 @@ export class ModuleLoader {
       /* istanbul ignore next - Integration tested on app startup */
       if (moduleDefinition.events) {
         try {
+          const handlers: Array<{
+            event: string;
+            handler: (...args: unknown[]) => void | Promise<void>;
+          }> = [];
           Object.entries(moduleDefinition.events).forEach(([event, handler]) => {
             eventBus.on(event, handler as (...args: unknown[]) => void);
+            handlers.push({
+              event,
+              handler: handler as (...args: unknown[]) => void | Promise<void>,
+            });
             logger.info(`  ✓ Event listener registered: ${event}`);
           });
+          // Store handlers for cleanup
+          this.moduleEventHandlers.set(moduleDefinition.name, handlers);
         } catch (eventError) {
           logger.error(`Failed to register event listeners for "${moduleName}":`, eventError);
         }
@@ -130,6 +152,17 @@ export class ModuleLoader {
     logger.info('Cleaning up modules...');
 
     for (const module of this.modules) {
+      // Remove event handlers
+      const handlers = this.moduleEventHandlers.get(module.name);
+      if (handlers) {
+        handlers.forEach(({ event, handler }) => {
+          eventBus.off(event, handler as (...args: unknown[]) => void);
+          logger.debug(`  ✓ Event listener removed: ${event}`);
+        });
+        this.moduleEventHandlers.delete(module.name);
+      }
+
+      // Call module cleanup
       if (module.cleanup) {
         try {
           await module.cleanup();
