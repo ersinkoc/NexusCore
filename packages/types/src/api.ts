@@ -27,16 +27,18 @@ export interface IModule {
 
 /**
  * Event Bus types
+ * Note: EventPayload is exported from events.ts for type-safe events
+ * This is the generic version for backward compatibility
  */
-export interface EventPayload {
+export interface GenericEventPayload {
   [key: string]: unknown;
 }
 
-export type EventHandler<T = EventPayload> = (payload: T) => void | Promise<void>;
+export type EventHandler<T = GenericEventPayload> = (payload: T) => void | Promise<void>;
 
 export interface IEventBus {
-  emit<T = EventPayload>(event: string, payload: T): void;
-  on<T = EventPayload>(event: string, handler: EventHandler<T>): void;
-  off<T = EventPayload>(event: string, handler: EventHandler<T>): void;
-  once<T = EventPayload>(event: string, handler: EventHandler<T>): void;
+  emit<T = GenericEventPayload>(event: string, payload: T): void;
+  on<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void;
+  off<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void;
+  once<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void;
 }

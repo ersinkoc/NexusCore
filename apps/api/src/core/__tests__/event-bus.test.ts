@@ -16,7 +16,7 @@ describe('EventBus', () => {
       const eventName = 'test.event';
       const payload = { message: 'Hello World' };
 
-      eventBus.on(eventName, (data) => {
+      eventBus.on(eventName, (data: any) => {
         expect(data).toEqual(payload);
         done();
       });
@@ -47,7 +47,7 @@ describe('EventBus', () => {
       const payload = { data: 'test' };
       let received = false;
 
-      eventBus.on(eventName, async (data) => {
+      eventBus.on(eventName, async (data: any) => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         received = true;
         expect(data).toEqual(payload);

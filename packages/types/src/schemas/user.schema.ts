@@ -30,7 +30,7 @@ export const UserFilterSchema = z.object({
 });
 
 // Type exports
-export type UserRole = z.infer<typeof UserRoleSchema>;
+// Note: UserRole is exported from common.ts as an enum
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
 export type UserFilter = z.infer<typeof UserFilterSchema>;
