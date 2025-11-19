@@ -6,3 +6,6 @@ export * from './schemas';
 
 // API types
 export * from './api';
+
+// Event types
+export * from './events';

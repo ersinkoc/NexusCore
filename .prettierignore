@@ -1,6 +1,51 @@
+# Dependencies
 node_modules
+.pnpm-store
+
+# Build outputs
 dist
 build
 .next
+out
+.turbo
+
+# Coverage
 coverage
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+
+# Database
+packages/db/prisma/migrations
+
+# Generated files
+*.generated.*
+.prisma
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Docker
+Dockerfile
+docker-compose*.yml
+
+# Package managers
 pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Cache
+.cache
+.eslintcache
+
+# Changelog
+CHANGELOG.md

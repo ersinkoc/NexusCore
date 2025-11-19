@@ -1,12 +1,21 @@
 import { EventEmitter } from 'events';
 
-import { IEventBus, EventHandler, EventPayload } from '@nexuscore/types';
+import {
+  IEventBus,
+  EventHandler,
+  EventPayload as GenericEventPayload,
+  EventName,
+  EventPayload,
+  TypedEventHandler,
+} from '@nexuscore/types';
 
 import { logger } from './logger';
 
 /**
- * Event Bus implementation for decoupled module communication
+ * Type-safe Event Bus implementation for decoupled module communication
  * Wraps Node.js EventEmitter with typed interface and logging
+ *
+ * Supports both typed events (via EventMap) and generic events for flexibility
  */
 export class EventBus implements IEventBus {
   private emitter: EventEmitter;
@@ -17,17 +26,41 @@ export class EventBus implements IEventBus {
   }
 
   /**
-   * Emit an event with payload
+   * Emit a typed event with payload
+   * Use this for known events defined in EventMap
    */
-  emit<T = EventPayload>(event: string, payload: T): void {
+  emitTyped<T extends EventName>(event: T, payload: EventPayload<T>): void {
     logger.debug(`Event emitted: ${event}`, { payload });
     this.emitter.emit(event, payload);
   }
 
   /**
-   * Subscribe to an event
+   * Emit a generic event with payload (backward compatible)
    */
-  on<T = EventPayload>(event: string, handler: EventHandler<T>): void {
+  emit<T = GenericEventPayload>(event: string, payload: T): void {
+    logger.debug(`Event emitted: ${event}`, { payload });
+    this.emitter.emit(event, payload);
+  }
+
+  /**
+   * Subscribe to a typed event
+   * Use this for known events defined in EventMap
+   */
+  onTyped<T extends EventName>(event: T, handler: TypedEventHandler<T>): void {
+    logger.debug(`Event listener registered: ${event}`);
+    this.emitter.on(event, async (payload: EventPayload<T>) => {
+      try {
+        await handler(payload);
+      } catch (error) {
+        logger.error(`Error in event handler for "${event}":`, error);
+      }
+    });
+  }
+
+  /**
+   * Subscribe to a generic event (backward compatible)
+   */
+  on<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`Event listener registered: ${event}`);
     this.emitter.on(event, async (payload: T) => {
       try {
@@ -41,7 +74,7 @@ export class EventBus implements IEventBus {
   /**
    * Unsubscribe from an event
    */
-  off<T = EventPayload>(event: string, handler: EventHandler<T>): void {
+  off<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`Event listener removed: ${event}`);
     this.emitter.off(event, handler as (...args: unknown[]) => void);
   }
@@ -49,7 +82,7 @@ export class EventBus implements IEventBus {
   /**
    * Subscribe to an event (fires only once)
    */
-  once<T = EventPayload>(event: string, handler: EventHandler<T>): void {
+  once<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`One-time event listener registered: ${event}`);
     this.emitter.once(event, async (payload: T) => {
       try {
