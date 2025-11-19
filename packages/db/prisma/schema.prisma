@@ -32,6 +32,7 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
   sessions      Session[]
+  posts         Post[]
 
   @@map("users")
 }
@@ -98,4 +99,45 @@ model AuditLog {
   @@index([entity])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================
+// Content Management (Example Module)
+// ============================================
+
+model Post {
+  id          String      @id @default(uuid())
+  title       String
+  slug        String      @unique
+  content     String      @db.Text
+  excerpt     String?     @db.Text
+  status      PostStatus  @default(DRAFT)
+  publishedAt DateTime?   @map("published_at")
+  authorId    String      @map("author_id")
+
+  // SEO
+  metaTitle       String?   @map("meta_title")
+  metaDescription String?   @map("meta_description")
+
+  // Metrics
+  viewCount Int @default(0) @map("view_count")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([slug])
+  @@map("posts")
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }

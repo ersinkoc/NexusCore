@@ -1,0 +1,20 @@
+import { Router } from 'express';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from '../../config/swagger';
+
+const router = Router();
+
+// Serve Swagger UI
+router.use('/', swaggerUi.serve);
+router.get('/', swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'NexusCore API Documentation',
+}));
+
+// Serve OpenAPI spec as JSON
+router.get('/json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+export default router;
