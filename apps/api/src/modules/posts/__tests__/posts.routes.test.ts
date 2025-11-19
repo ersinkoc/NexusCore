@@ -509,5 +509,17 @@ describe('Posts Routes Integration Tests', () => {
 
       expect(response.status).toBe(500);
     });
+
+    it('should handle invalid update data with Zod validation', async () => {
+      // Send invalid data that will fail Zod validation
+      const invalidUpdateData = {
+        status: 'INVALID_STATUS', // Invalid enum value
+      };
+
+      const response = await request(app).put('/posts/post-123').send(invalidUpdateData);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Invalid post data');
+    });
   });
 });
