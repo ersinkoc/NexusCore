@@ -1,5 +1,6 @@
 import { JWTService } from '../jwt.service';
 import { UserRole } from '@nexuscore/types';
+import * as jwt from 'jsonwebtoken';
 
 describe('JWTService', () => {
   const mockPayload = {
@@ -60,6 +61,21 @@ describe('JWTService', () => {
         JWTService.verifyAccessToken('');
       }).toThrow();
     });
+
+    it('should throw "Access token expired" for expired token', () => {
+      // Create expired token by signing with -1s expiry
+      const expiredToken = jwt.sign(
+        mockPayload,
+        process.env.JWT_ACCESS_SECRET || 'access-secret-key',
+        {
+          expiresIn: '-1s',
+        }
+      );
+
+      expect(() => {
+        JWTService.verifyAccessToken(expiredToken);
+      }).toThrow('Access token expired');
+    });
   });
 
   describe('verifyRefreshToken', () => {
@@ -75,6 +91,20 @@ describe('JWTService', () => {
       expect(() => {
         JWTService.verifyRefreshToken('invalid.token.here');
       }).toThrow();
+    });
+
+    it('should throw "Refresh token expired" for expired token', () => {
+      const expiredToken = jwt.sign(
+        mockPayload,
+        process.env.JWT_REFRESH_SECRET || 'refresh-secret-key',
+        {
+          expiresIn: '-1s',
+        }
+      );
+
+      expect(() => {
+        JWTService.verifyRefreshToken(expiredToken);
+      }).toThrow('Refresh token expired');
     });
   });
 
