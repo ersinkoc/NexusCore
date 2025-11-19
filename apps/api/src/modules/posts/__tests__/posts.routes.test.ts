@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express, { Express } from 'express';
-import { postsRoutes } from '../posts.routes';
+import postsRoutes from '../posts.routes';
 import { PostsService } from '../posts.service';
 import { PostStatus } from '@nexuscore/types';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../core/errors';
@@ -9,8 +9,8 @@ import { NotFoundError, ForbiddenError, ValidationError } from '../../../core/er
 jest.mock('../posts.service');
 
 // Mock middleware
-jest.mock('../../../middleware/auth.middleware', () => ({
-  authenticate: (req: any, res: any, next: any) => {
+jest.mock('../../auth/auth.middleware', () => ({
+  requireAuth: (req: any, _res: any, next: any) => {
     req.user = {
       userId: 'user-123',
       email: 'test@example.com',
@@ -18,10 +18,7 @@ jest.mock('../../../middleware/auth.middleware', () => ({
     };
     next();
   },
-}));
-
-jest.mock('../../../middleware/rbac.middleware', () => ({
-  requireRole: (...roles: string[]) => (req: any, res: any, next: any) => next(),
+  requireRole: () => (_req: any, _res: any, next: any) => next(),
 }));
 
 // Mock logger

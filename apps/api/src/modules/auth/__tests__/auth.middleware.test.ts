@@ -119,10 +119,10 @@ describe('Auth Middleware', () => {
       (mockRequest as AuthenticatedRequest).user = {
         userId: 'user-123',
         email: 'admin@example.com',
-        role: 'ADMIN' as UserRole,
+        role: UserRole.ADMIN,
       };
 
-      const middleware = requireRole(['ADMIN'] as UserRole[]);
+      const middleware = requireRole([UserRole.ADMIN]);
       middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith();
@@ -132,10 +132,10 @@ describe('Auth Middleware', () => {
       (mockRequest as AuthenticatedRequest).user = {
         userId: 'user-123',
         email: 'user@example.com',
-        role: 'MODERATOR' as UserRole,
+        role: UserRole.MODERATOR,
       };
 
-      const middleware = requireRole(['ADMIN', 'MODERATOR'] as UserRole[]);
+      const middleware = requireRole([UserRole.ADMIN, UserRole.MODERATOR]);
       middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith();
@@ -145,10 +145,10 @@ describe('Auth Middleware', () => {
       (mockRequest as AuthenticatedRequest).user = {
         userId: 'user-123',
         email: 'user@example.com',
-        role: 'USER' as UserRole,
+        role: UserRole.USER,
       };
 
-      const middleware = requireRole(['ADMIN'] as UserRole[]);
+      const middleware = requireRole([UserRole.ADMIN]);
       middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith(expect.any(ForbiddenError));
@@ -157,7 +157,7 @@ describe('Auth Middleware', () => {
     it('should deny access when user is not authenticated', () => {
       mockRequest.user = undefined;
 
-      const middleware = requireRole(['ADMIN'] as UserRole[]);
+      const middleware = requireRole([UserRole.ADMIN]);
       middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
       expect(nextFunction).toHaveBeenCalledWith(expect.any(UnauthorizedError));

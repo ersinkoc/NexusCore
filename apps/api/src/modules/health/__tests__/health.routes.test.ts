@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express, { Express } from 'express';
-import { healthRoutes } from '../health.routes';
+import healthRoutes from '../health.routes';
 import { HealthService } from '../health.service';
 
 // Mock HealthService
