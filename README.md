@@ -112,6 +112,50 @@ Standardized error responses:
 }
 ```
 
+### 5. Built-in Modules
+
+NexusCore includes several production-ready modules out of the box:
+
+#### Health Check Module
+- Comprehensive system monitoring
+- Database, Redis, and memory health checks
+- Kubernetes-compatible liveness and readiness probes
+- Response time metrics
+- Endpoints: `/api/health`, `/api/health/live`, `/api/health/ready`
+
+#### API Documentation
+- Interactive Swagger UI at `/docs`
+- Auto-generated OpenAPI 3.0 specification
+- Complete schema definitions
+- Try-it-out functionality for all endpoints
+- Export spec as JSON at `/docs/json`
+
+#### Posts Module (Example CRUD)
+- Demonstrates best practices for building modules
+- Full CRUD operations with authorization
+- Event-driven architecture
+- Automatic slug generation
+- SEO fields and view counting
+- Status management (draft/published/archived)
+- Pagination and search
+- Owner/admin permissions
+
+#### Authentication & Users
+- JWT-based authentication with refresh tokens
+- Role-based access control (RBAC)
+- User management endpoints
+- Password hashing with bcrypt
+- Audit logging
+
+### 6. Developer Experience
+
+- **Pre-commit hooks**: Automatic linting and formatting with Husky
+- **Code formatting**: Prettier with comprehensive rules
+- **Type safety**: Strict TypeScript throughout
+- **Testing**: Jest with 70% coverage threshold
+- **CI/CD**: GitHub Actions pipeline included
+- **Documentation**: Comprehensive API docs and guides
+
 ---
 
 ## Quick Start with CLI
@@ -184,8 +228,14 @@ The CLI will:
    ```bash
    pnpm --filter @nexuscore/db seed
    ```
-   Creates test users:
+   Creates test data:
+   - **Users**: admin, moderator, 3 users, 1 inactive user
+   - **Posts**: 5 sample blog posts with different statuses
+   - **Audit Logs**: Comprehensive audit trail
+
+   Test credentials:
    - Admin: `admin@nexuscore.local` / `Admin123!`
+   - Moderator: `moderator@nexuscore.local` / `Moderator123!`
    - User: `user@nexuscore.local` / `User123!`
 
 7. **Start development servers**
@@ -203,18 +253,26 @@ The CLI will:
 ### Root
 - `pnpm dev` - Start all apps in dev mode
 - `pnpm build` - Build all packages
-- `pnpm docker:up` - Start Docker services
+- `pnpm test` - Run tests across all packages
+- `pnpm test:coverage` - Run tests with coverage
+- `pnpm lint` - Lint all packages
+- `pnpm format` - Format code with Prettier
+- `pnpm format:check` - Check code formatting
+- `pnpm docker:up` - Start Docker services (development)
 - `pnpm docker:down` - Stop Docker services
+- `pnpm docker:prod` - Start production Docker stack
 
 ### Database
 - `pnpm db:generate` - Generate Prisma client
 - `pnpm db:push` - Push schema to database
 - `pnpm db:migrate` - Create migration
+- `pnpm db:seed` - Seed database with test data
 - `pnpm db:studio` - Open Prisma Studio
 
 ### Individual Apps
 - `pnpm api` - Run API only
 - `pnpm web` - Run web only
+- `pnpm cli` - Run CLI tool
 
 ---
 
@@ -255,12 +313,46 @@ NexusCore includes a complete JWT-based authentication system with RBAC:
 - Automatic token rotation on refresh
 
 #### Available Endpoints
+
+**Authentication** (`/api/auth`)
 ```typescript
 POST /api/auth/register  // Register new user
 POST /api/auth/login     // Login with credentials
 POST /api/auth/logout    // Logout (invalidates refresh token)
 POST /api/auth/refresh   // Get new access token
 GET  /api/auth/me        // Get current user (requires auth)
+```
+
+**User Management** (`/api/users`)
+```typescript
+GET    /api/users           // List all users (admin only)
+GET    /api/users/:id       // Get user by ID (admin only)
+PUT    /api/users/:id       // Update user (admin only)
+DELETE /api/users/:id       // Delete user (admin only)
+POST   /api/users/:id/deactivate  // Deactivate user (admin only)
+```
+
+**Health Checks** (`/api/health`)
+```typescript
+GET /api/health        // Comprehensive system health check
+GET /api/health/live   // Liveness probe (Kubernetes)
+GET /api/health/ready  // Readiness probe (Kubernetes)
+```
+
+**Posts (Example Module)** (`/api/posts`)
+```typescript
+GET    /api/posts           // List posts with pagination & search (public)
+POST   /api/posts           // Create new post (auth required)
+GET    /api/posts/:id       // Get post by ID (public)
+PUT    /api/posts/:id       // Update post (owner/admin only)
+DELETE /api/posts/:id       // Delete post (owner/admin only)
+POST   /api/posts/:id/publish  // Publish post (owner/admin only)
+```
+
+**API Documentation** (`/docs`)
+```typescript
+GET /docs       // Interactive Swagger UI
+GET /docs/json  // OpenAPI 3.0 spec as JSON
 ```
 
 #### Protecting Routes
