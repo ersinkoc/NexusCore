@@ -4,7 +4,7 @@ import { requireAuth, AuthenticatedRequest } from '../auth/auth.middleware';
 import { createPostSchema, updatePostSchema, queryPostsSchema } from '@nexuscore/types';
 import { ValidationError } from '../../core/errors';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger
@@ -192,12 +192,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = updatePostSchema.parse(req.body);
-    const post = await PostsService.update(
-      req.params.id,
-      req.user!.userId,
-      req.user!.role,
-      data
-    );
+    const post = await PostsService.update(req.params.id, req.user!.userId, req.user!.role, data);
     res.json(post);
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {

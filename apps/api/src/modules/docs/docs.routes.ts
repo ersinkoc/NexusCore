@@ -2,7 +2,7 @@ import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from '../../config/swagger';
 
-const router = Router();
+const router: Router = Router();
 
 // Serve Swagger UI
 router.use('/', swaggerUi.serve);
