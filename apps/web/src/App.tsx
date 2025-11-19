@@ -1,4 +1,13 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Users from './pages/Users';
+import DashboardLayout from './components/DashboardLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import { UserRole } from '@nexuscore/types';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,38 +21,55 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-16">
-          <div className="text-center">
-            <h1 className="text-6xl font-bold text-gray-900 mb-4">
-              Welcome to <span className="text-blue-600">NexusCore</span>
-            </h1>
-            <p className="text-xl text-gray-600 mb-8">
-              The Ultimate Node.js & React Boilerplate
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold mb-2">Modular Architecture</h3>
-                <p className="text-gray-600">
-                  Plugin-based module system with auto-discovery
-                </p>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* Protected routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route
+              path="users"
+              element={
+                <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.MODERATOR]}>
+                  <Users />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          {/* Redirect root to dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* 404 */}
+          <Route
+            path="*"
+            element={
+              <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                  <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
+                  <p className="text-xl text-gray-600 mb-8">Page not found</p>
+                  <a
+                    href="/dashboard"
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Go to Dashboard
+                  </a>
+                </div>
               </div>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold mb-2">Event-Driven</h3>
-                <p className="text-gray-600">
-                  Decoupled modules via EventBus pattern
-                </p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <h3 className="text-lg font-semibold mb-2">Production Ready</h3>
-                <p className="text-gray-600">
-                  Caching, logging, error handling out of the box
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }
