@@ -223,6 +223,51 @@ Custom error classes:
 
 All errors return consistent JSON format with correlation IDs for tracing.
 
+### Authentication & Authorization
+
+NexusCore includes a complete JWT-based authentication system with RBAC:
+
+#### JWT Tokens
+- **Access Token**: Short-lived (15 minutes), sent in Authorization header
+- **Refresh Token**: Long-lived (7 days), stored as httpOnly cookie
+- Automatic token rotation on refresh
+
+#### Available Endpoints
+```typescript
+POST /api/auth/register  // Register new user
+POST /api/auth/login     // Login with credentials
+POST /api/auth/logout    // Logout (invalidates refresh token)
+POST /api/auth/refresh   // Get new access token
+GET  /api/auth/me        // Get current user (requires auth)
+```
+
+#### Protecting Routes
+```typescript
+import { requireAuth, requireRole } from './modules/auth';
+
+// Require authentication
+router.get('/profile', requireAuth, handler);
+
+// Require specific role
+router.delete('/users/:id',
+  requireAuth,
+  requireRole([UserRole.ADMIN]),
+  handler
+);
+```
+
+#### Example Request
+```bash
+# Login
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@nexuscore.local", "password": "Admin123!"}'
+
+# Use access token
+curl http://localhost:4000/api/users \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
 ---
 
 ## Roadmap
@@ -233,22 +278,28 @@ All errors return consistent JSON format with correlation IDs for tracing.
 - [x] Prisma schema
 - [x] Core packages
 
-### Phase 2: Backend Core (Next)
-- [ ] Module Loader implementation
-- [ ] EventBus system
-- [ ] Advanced error handling
-- [ ] Request logging with correlation IDs
+### Phase 2: Backend Core ✅
+- [x] Module Loader implementation
+- [x] EventBus system
+- [x] Advanced error handling
+- [x] Request logging with correlation IDs
 
-### Phase 3: Authentication
-- [ ] JWT authentication
-- [ ] RBAC middleware
-- [ ] Refresh token rotation
-- [ ] Password reset flow
+### Phase 3: Authentication ✅
+- [x] JWT authentication (Access + Refresh tokens)
+- [x] RBAC middleware (requireAuth, requireRole)
+- [x] Refresh token rotation
+- [x] Password hashing with bcrypt
+- [x] Auth module with events
+- [x] Users module demonstrating RBAC
 
-### Phase 4: Frontend Integration
-- [ ] Auth UI components
-- [ ] Admin dashboard layout
-- [ ] User management CRUD
+### Phase 4: Frontend Integration ✅
+- [x] Auth UI components (Login, Register)
+- [x] Admin dashboard layout with sidebar navigation
+- [x] User management CRUD interface
+- [x] API client with automatic token refresh
+- [x] Protected routes with RBAC
+- [x] Zustand store for global auth state
+- [x] React Hook Form + Zod validation
 
 ### Phase 5: CLI Tool
 - [ ] Interactive scaffolding
