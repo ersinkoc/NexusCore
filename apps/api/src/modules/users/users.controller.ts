@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { PaginationSchema, IdParamSchema, UpdateUserSchema } from '@nexuscore/types';
+import { PaginationSchema, IdParamSchema, UpdateUserSchema, UserRole } from '@nexuscore/types';
 
 import { asyncHandler } from '../../shared/utils';
 import { UsersService } from './users.service';
@@ -19,7 +19,7 @@ export class UsersController {
   getUsers = asyncHandler(async (req: Request, res: Response) => {
     const pagination = PaginationSchema.parse(req.query);
     const filter = {
-      role: req.query.role as string | undefined,
+      role: req.query.role as UserRole | undefined,
       isActive: req.query.isActive ? req.query.isActive === 'true' : undefined,
       search: req.query.search as string | undefined,
     };

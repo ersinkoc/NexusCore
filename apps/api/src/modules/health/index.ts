@@ -1,4 +1,4 @@
-import { IModule } from '../../core/module-loader';
+import { IModule } from '@nexuscore/types';
 import { logger } from '../../core/logger';
 import HealthRoutes from './health.routes';
 import { HealthService } from './health.service';
