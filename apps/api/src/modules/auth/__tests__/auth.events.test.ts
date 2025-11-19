@@ -1,4 +1,4 @@
-import { onUserRegistered, onUserLogin } from '../auth.events';
+import { onUserRegistered, onUserLogin, AuthEventHandlers } from '../auth.events';
 import { logger } from '../../../core/logger';
 
 // Mock logger
@@ -90,6 +90,48 @@ describe('Auth Events', () => {
       expect(logger.info).toHaveBeenNthCalledWith(2, 'User login event', {
         userId: 'user-2',
         email: 'user2@example.com',
+      });
+    });
+  });
+
+  describe('AuthEventHandlers', () => {
+    it('should have auth.registered handler', () => {
+      expect(AuthEventHandlers['auth.registered']).toBeDefined();
+      expect(typeof AuthEventHandlers['auth.registered']).toBe('function');
+    });
+
+    it('should have auth.login handler', () => {
+      expect(AuthEventHandlers['auth.login']).toBeDefined();
+      expect(typeof AuthEventHandlers['auth.login']).toBe('function');
+    });
+
+    it('should call onUserRegistered via handler wrapper', async () => {
+      const payload = {
+        userId: 'user-wrapper-123',
+        email: 'wrapper@example.com',
+        firstName: 'Wrapper',
+        lastName: 'Test',
+      };
+
+      await AuthEventHandlers['auth.registered'](payload);
+
+      expect(logger.info).toHaveBeenCalledWith('New user registered', {
+        userId: 'user-wrapper-123',
+        email: 'wrapper@example.com',
+      });
+    });
+
+    it('should call onUserLogin via handler wrapper', async () => {
+      const payload = {
+        userId: 'user-wrapper-456',
+        email: 'login@example.com',
+      };
+
+      await AuthEventHandlers['auth.login'](payload);
+
+      expect(logger.info).toHaveBeenCalledWith('User login event', {
+        userId: 'user-wrapper-456',
+        email: 'login@example.com',
       });
     });
   });

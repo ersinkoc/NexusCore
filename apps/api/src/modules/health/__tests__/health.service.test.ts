@@ -159,4 +159,69 @@ describe('HealthService', () => {
       expect(result.checks.memory.details?.heapTotal).toMatch(/MB$/);
     });
   });
+
+  describe('cleanup', () => {
+    it('should cleanup Redis connection', async () => {
+      // Initialize Redis first
+      HealthService.initializeRedis();
+
+      await expect(HealthService.cleanup()).resolves.not.toThrow();
+    });
+
+    it('should handle cleanup when Redis is not initialized', async () => {
+      // Reset redis to undefined
+      (HealthService as any).redis = undefined;
+
+      await expect(HealthService.cleanup()).resolves.not.toThrow();
+    });
+  });
+
+  describe('Error handling edge cases', () => {
+    it('should handle non-Error objects in database check', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue('String error');
+
+      const result = await HealthService.performHealthCheck();
+
+      expect(result.checks.database.status).toBe('down');
+      expect(result.checks.database.message).toBe('Database connection failed');
+    });
+
+    it('should return false for readiness when database throws', async () => {
+      (prisma.$queryRaw as jest.Mock).mockImplementation(() => {
+        throw new Error('Database error');
+      });
+
+      const result = await HealthService.readinessCheck();
+
+      expect(result).toBe(false);
+    });
+
+    it('should handle database check returning down status', async () => {
+      (prisma.$queryRaw as jest.Mock).mockRejectedValue(new Error('Connection timeout'));
+
+      const result = await HealthService.performHealthCheck();
+
+      expect(result.status).toBe('unhealthy');
+      expect(result.checks.database.status).toBe('down');
+    });
+
+    it('should handle non-Error Redis check failures', async () => {
+      // Test the error instanceof Error check by throwing a string
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ result: 1 }]);
+
+      // Temporarily replace checkRedis to throw a non-Error
+      const originalCheckRedis = (HealthService as any).checkRedis;
+      (HealthService as any).checkRedis = async () => {
+        throw 'String error'; // Non-Error object
+      };
+
+      const result = await HealthService.performHealthCheck();
+
+      expect(result.checks.redis.status).toBe('down');
+      expect(result.checks.redis.message).toBe('Redis connection failed');
+
+      // Restore
+      (HealthService as any).checkRedis = originalCheckRedis;
+    });
+  });
 });
