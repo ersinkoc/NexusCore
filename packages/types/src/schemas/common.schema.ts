@@ -23,7 +23,11 @@ export const PasswordSchema = z
   .max(100, 'Password must not exceed 100 characters')
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-  .regex(/[0-9]/, 'Password must contain at least one number');
+  .regex(/[0-9]/, 'Password must contain at least one number')
+  .regex(
+    /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
+    'Password must contain at least one special character'
+  );
 
 export type PaginationInput = z.infer<typeof PaginationSchema>;
 export type IdParam = z.infer<typeof IdParamSchema>;

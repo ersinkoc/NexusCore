@@ -6,7 +6,7 @@ import {
   PostStatus,
   UserRole,
 } from '@nexuscore/types';
-import { NotFoundError, ForbiddenError } from '../../core/errors';
+import { NotFoundError, ForbiddenError, ValidationError } from '../../core/errors';
 import { eventBus } from '../../core/event-bus';
 import { logger } from '../../core/logger';
 
@@ -25,21 +25,21 @@ function generateSlug(title: string): string {
 export class PostsService {
   /**
    * Create a new post
-   * Generates unique slug by appending timestamp if slug already exists
+   * Generates unique slug by appending UUID suffix to prevent race conditions
    */
   static async create(userId: string, input: CreatePostInput) {
-    let slug = generateSlug(input.title);
+    const baseSlug = generateSlug(input.title);
 
-    // Check if slug already exists and make it unique if needed
-    const existing = await prisma.post.findUnique({
-      where: { slug },
-    });
-
-    if (existing) {
-      slug = `${slug}-${Date.now()}`;
+    // Prevent empty slugs
+    if (!baseSlug || baseSlug.length === 0) {
+      throw new ValidationError('Title must contain at least one alphanumeric character');
     }
 
-    // Create post with unique slug
+    // Always append timestamp + random suffix to ensure uniqueness even under concurrent requests
+    // This prevents race conditions where multiple requests create posts with same title simultaneously
+    const slug = `${baseSlug}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    // Create post with guaranteed unique slug
     const post = await prisma.post.create({
       data: {
         ...input,
@@ -265,12 +265,18 @@ export class PostsService {
       throw new ForbiddenError('You do not have permission to publish this post');
     }
 
+    // Only set publishedAt if it's the first time publishing (preserve original date on re-publish)
+    const publishData: { status: PostStatus; publishedAt?: Date } = {
+      status: PostStatus.PUBLISHED,
+    };
+
+    if (!post.publishedAt) {
+      publishData.publishedAt = new Date();
+    }
+
     const updated = await prisma.post.update({
       where: { id },
-      data: {
-        status: PostStatus.PUBLISHED,
-        publishedAt: new Date(),
-      },
+      data: publishData,
       include: {
         author: {
           select: {

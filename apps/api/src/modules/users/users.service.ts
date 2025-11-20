@@ -8,12 +8,30 @@ import { NotFoundError, ValidationError } from '../../core/errors';
  * Handles user management operations
  */
 export class UsersService {
+  // Whitelist of allowed sort fields to prevent SQL injection
+  private static readonly ALLOWED_SORT_FIELDS = [
+    'email',
+    'firstName',
+    'lastName',
+    'role',
+    'isActive',
+    'createdAt',
+    'updatedAt',
+  ] as const;
+
   /**
    * Get all users with pagination
    */
   async getUsers(pagination: PaginationInput, filter?: UserFilter) {
     const { page, limit, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
     const skip = (page - 1) * limit;
+
+    // Validate sortBy field against whitelist to prevent SQL injection
+    if (!UsersService.ALLOWED_SORT_FIELDS.includes(sortBy as any)) {
+      throw new ValidationError(
+        `Invalid sort field. Allowed fields: ${UsersService.ALLOWED_SORT_FIELDS.join(', ')}`
+      );
+    }
 
     // Build where clause - let TypeScript infer the type for Prisma compatibility
     const where: Record<string, unknown> = {};

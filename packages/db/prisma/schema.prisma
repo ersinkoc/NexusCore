@@ -34,6 +34,8 @@ model User {
   sessions      Session[]
   posts         Post[]
 
+  // Composite indexes for performance
+  @@index([email, isActive]) // For login queries with active status check
   @@map("users")
 }
 
@@ -58,6 +60,7 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt]) // For efficient token cleanup/expiration queries
   @@map("refresh_tokens")
 }
 
@@ -129,10 +132,14 @@ model Post {
   // Relations
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
+  // Single column indexes
   @@index([authorId])
   @@index([status])
   @@index([publishedAt])
   @@index([slug])
+  // Composite indexes for common query patterns
+  @@index([status, publishedAt]) // For published posts ordered by date
+  @@index([authorId, status]) // For filtering posts by author and status
   @@map("posts")
 }
 
