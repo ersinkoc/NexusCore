@@ -6,6 +6,11 @@ import { PostsService } from '../posts.service';
 import { PostStatus } from '@nexuscore/types';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../../core/errors';
 
+// Test UUIDs
+const TEST_USER_ID = '550e8400-e29b-41d4-a716-446655440000';
+const TEST_POST_ID = '123e4567-e89b-12d3-a456-426614174000';
+const NONEXISTENT_POST_ID = '999e9999-e99b-99d9-a999-999999999999';
+
 // Mock prisma
 jest.mock('@nexuscore/db', () => ({
   prisma: {
@@ -20,9 +25,9 @@ jest.mock('../posts.service');
 jest.mock('../../auth/auth.middleware', () => ({
   requireAuth: (req: any, _res: any, next: any) => {
     req.user = {
-      userId: 'user-123',
+      userId: TEST_USER_ID,
       email: 'test@example.com',
-      role: 'USER',
+      role: 'user',
     };
     next();
   },
@@ -52,6 +57,10 @@ describe('Posts Routes Integration Tests', () => {
     // Global error handler
     app.use(
       (err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+        // Handle Zod validation errors
+        if (err.name === 'ZodError') {
+          return res.status(400).json({ error: 'Invalid post data' });
+        }
         if (err instanceof ValidationError) {
           return res.status(400).json({ error: err.message });
         }
@@ -175,27 +184,28 @@ describe('Posts Routes Integration Tests', () => {
 
   describe('GET /posts/:id', () => {
     it('should return post by id', async () => {
+      const postId = '123e4567-e89b-12d3-a456-426614174000';
       const mockPost = {
-        id: 'post-123',
+        id: postId,
         title: 'Test Post',
         slug: 'test-post',
         content: 'Test content',
         status: PostStatus.PUBLISHED,
-        author: { id: 'user-123', email: 'test@example.com' },
+        author: { id: TEST_USER_ID, email: 'test@example.com' },
       };
 
       (PostsService.findById as jest.Mock).mockResolvedValue(mockPost);
 
-      const response = await request(app).get('/posts/post-123').expect(200);
+      const response = await request(app).get(`/posts/${postId}`).expect(200);
 
       expect(response.body).toEqual(mockPost);
-      expect(PostsService.findById).toHaveBeenCalledWith('post-123');
+      expect(PostsService.findById).toHaveBeenCalledWith(postId);
     });
 
     it('should return 404 for non-existent post', async () => {
       (PostsService.findById as jest.Mock).mockRejectedValue(new NotFoundError('Post not found'));
 
-      const response = await request(app).get('/posts/nonexistent').expect(404);
+      const response = await request(app).get(`/posts/${NONEXISTENT_POST_ID}`).expect(404);
 
       expect(response.body.error).toContain('not found');
     });
@@ -204,12 +214,12 @@ describe('Posts Routes Integration Tests', () => {
   describe('GET /posts/slug/:slug', () => {
     it('should return post by slug', async () => {
       const mockPost = {
-        id: 'post-123',
+        id: TEST_POST_ID,
         title: 'Test Post',
         slug: 'test-post',
         content: 'Test content',
         status: PostStatus.PUBLISHED,
-        author: { id: 'user-123', email: 'test@example.com' },
+        author: { id: TEST_USER_ID, email: 'test@example.com' },
       };
 
       (PostsService.findBySlug as jest.Mock).mockResolvedValue(mockPost);
@@ -238,11 +248,11 @@ describe('Posts Routes Integration Tests', () => {
       };
 
       const mockPost = {
-        id: 'post-123',
+        id: TEST_POST_ID,
         ...createData,
         slug: 'new-post',
-        authorId: 'user-123',
-        author: { id: 'user-123', email: 'test@example.com' },
+        authorId: TEST_USER_ID,
+        author: { id: TEST_USER_ID, email: 'test@example.com' },
       };
 
       (PostsService.create as jest.Mock).mockResolvedValue(mockPost);
@@ -250,7 +260,7 @@ describe('Posts Routes Integration Tests', () => {
       const response = await request(app).post('/posts').send(createData).expect(201);
 
       expect(response.body).toEqual(mockPost);
-      expect(PostsService.create).toHaveBeenCalledWith('user-123', createData);
+      expect(PostsService.create).toHaveBeenCalledWith(TEST_USER_ID, createData);
     });
 
     it('should return 400 for missing title', async () => {
@@ -292,27 +302,35 @@ describe('Posts Routes Integration Tests', () => {
       };
 
       const mockUpdatedPost = {
-        id: 'post-123',
+        id: TEST_POST_ID,
         ...updateData,
         slug: 'updated-title',
         status: PostStatus.DRAFT,
-        authorId: 'user-123',
-        author: { id: 'user-123', email: 'test@example.com' },
+        authorId: TEST_USER_ID,
+        author: { id: TEST_USER_ID, email: 'test@example.com' },
       };
 
       (PostsService.update as jest.Mock).mockResolvedValue(mockUpdatedPost);
 
-      const response = await request(app).put('/posts/post-123').send(updateData).expect(200);
+      const response = await request(app)
+        .put(`/posts/${TEST_POST_ID}`)
+        .send(updateData)
+        .expect(200);
 
       expect(response.body).toEqual(mockUpdatedPost);
-      expect(PostsService.update).toHaveBeenCalledWith('post-123', 'user-123', 'USER', updateData);
+      expect(PostsService.update).toHaveBeenCalledWith(
+        TEST_POST_ID,
+        TEST_USER_ID,
+        'user',
+        updateData
+      );
     });
 
     it('should return 404 for non-existent post', async () => {
       (PostsService.update as jest.Mock).mockRejectedValue(new NotFoundError('Post not found'));
 
       const response = await request(app)
-        .put('/posts/nonexistent')
+        .put(`/posts/${NONEXISTENT_POST_ID}`)
         .send({ title: 'Updated' })
         .expect(404);
 
@@ -325,7 +343,7 @@ describe('Posts Routes Integration Tests', () => {
       );
 
       const response = await request(app)
-        .put('/posts/post-123')
+        .put(`/posts/${TEST_POST_ID}`)
         .send({ title: 'Updated' })
         .expect(403);
 
@@ -339,16 +357,16 @@ describe('Posts Routes Integration Tests', () => {
         message: 'Post deleted successfully',
       });
 
-      const response = await request(app).delete('/posts/post-123').expect(200);
+      const response = await request(app).delete(`/posts/${TEST_POST_ID}`).expect(200);
 
       expect(response.body.message).toContain('deleted');
-      expect(PostsService.delete).toHaveBeenCalledWith('post-123', 'user-123', 'USER');
+      expect(PostsService.delete).toHaveBeenCalledWith(TEST_POST_ID, TEST_USER_ID, 'user');
     });
 
     it('should return 404 for non-existent post', async () => {
       (PostsService.delete as jest.Mock).mockRejectedValue(new NotFoundError('Post not found'));
 
-      const response = await request(app).delete('/posts/nonexistent').expect(404);
+      const response = await request(app).delete(`/posts/${NONEXISTENT_POST_ID}`).expect(404);
 
       expect(response.body.error).toContain('not found');
     });
@@ -358,7 +376,7 @@ describe('Posts Routes Integration Tests', () => {
         new ForbiddenError('You do not have permission')
       );
 
-      const response = await request(app).delete('/posts/post-123').expect(403);
+      const response = await request(app).delete(`/posts/${TEST_POST_ID}`).expect(403);
 
       expect(response.body.error).toContain('permission');
     });
@@ -367,28 +385,28 @@ describe('Posts Routes Integration Tests', () => {
   describe('POST /posts/:id/publish', () => {
     it('should publish a post', async () => {
       const mockPublishedPost = {
-        id: 'post-123',
+        id: TEST_POST_ID,
         title: 'Test Post',
         slug: 'test-post',
         content: 'Test content',
         status: PostStatus.PUBLISHED,
         publishedAt: new Date(),
-        authorId: 'user-123',
-        author: { id: 'user-123', email: 'test@example.com' },
+        authorId: TEST_USER_ID,
+        author: { id: TEST_USER_ID, email: 'test@example.com' },
       };
 
       (PostsService.publish as jest.Mock).mockResolvedValue(mockPublishedPost);
 
-      const response = await request(app).post('/posts/post-123/publish').expect(200);
+      const response = await request(app).post(`/posts/${TEST_POST_ID}/publish`).expect(200);
 
       expect(response.body.status).toBe(PostStatus.PUBLISHED);
-      expect(PostsService.publish).toHaveBeenCalledWith('post-123', 'user-123', 'USER');
+      expect(PostsService.publish).toHaveBeenCalledWith(TEST_POST_ID, TEST_USER_ID, 'user');
     });
 
     it('should return 404 for non-existent post', async () => {
       (PostsService.publish as jest.Mock).mockRejectedValue(new NotFoundError('Post not found'));
 
-      const response = await request(app).post('/posts/nonexistent/publish').expect(404);
+      const response = await request(app).post(`/posts/${NONEXISTENT_POST_ID}/publish`).expect(404);
 
       expect(response.body.error).toContain('not found');
     });
@@ -398,7 +416,7 @@ describe('Posts Routes Integration Tests', () => {
         new ForbiddenError('You do not have permission')
       );
 
-      const response = await request(app).post('/posts/post-123/publish').expect(403);
+      const response = await request(app).post(`/posts/${TEST_POST_ID}/publish`).expect(403);
 
       expect(response.body.error).toContain('permission');
     });
@@ -428,7 +446,7 @@ describe('Posts Routes Integration Tests', () => {
 
       // Create post will be called if validation succeeds
       (PostsService.create as jest.Mock).mockResolvedValue({
-        id: 'post-123',
+        id: TEST_POST_ID,
         ...createData,
       });
 
@@ -443,11 +461,11 @@ describe('Posts Routes Integration Tests', () => {
       };
 
       (PostsService.update as jest.Mock).mockResolvedValue({
-        id: 'post-123',
+        id: TEST_POST_ID,
         ...updateData,
       });
 
-      const response = await request(app).put('/posts/post-123').send(updateData);
+      const response = await request(app).put(`/posts/${TEST_POST_ID}`).send(updateData);
 
       expect(response.status).toBe(200);
     });
@@ -464,7 +482,7 @@ describe('Posts Routes Integration Tests', () => {
 
     it('should handle malformed JSON in PUT request', async () => {
       const response = await request(app)
-        .put('/posts/post-123')
+        .put(`/posts/${TEST_POST_ID}`)
         .set('Content-Type', 'application/json')
         .send('{"title": invalid}');
 
@@ -505,7 +523,7 @@ describe('Posts Routes Integration Tests', () => {
       // Mock update to throw a non-Zod error
       (PostsService.update as jest.Mock).mockRejectedValue(new Error('Database error'));
 
-      const response = await request(app).put('/posts/post-123').send(updateData);
+      const response = await request(app).put(`/posts/${TEST_POST_ID}`).send(updateData);
 
       expect(response.status).toBe(500);
     });
@@ -516,7 +534,7 @@ describe('Posts Routes Integration Tests', () => {
         status: 'INVALID_STATUS', // Invalid enum value
       };
 
-      const response = await request(app).put('/posts/post-123').send(invalidUpdateData);
+      const response = await request(app).put(`/posts/${TEST_POST_ID}`).send(invalidUpdateData);
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('Invalid post data');
