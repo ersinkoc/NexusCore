@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { LoginSchema, RegisterSchema } from '@nexuscore/types';
+import { LoginSchema, RegisterSchema, AuthenticatedRequest } from '@nexuscore/types';
 
 import { asyncHandler } from '../../shared/utils';
 import { AuthService } from './auth.service';

@@ -6,7 +6,15 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/', 'setup.ts'],
   transform: {
-    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          module: 'esnext',
+          target: 'es2022',
+        },
+      },
+    ],
   },
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -33,6 +41,8 @@ module.exports = {
     '^@core/(.*)$': '<rootDir>/src/core/$1',
     '^@modules/(.*)$': '<rootDir>/src/modules/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+    '^@nexuscore/types$': '<rootDir>/../../packages/types/src/index.ts',
+    '^@nexuscore/db$': '<rootDir>/../../packages/db/src/index.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   clearMocks: true,

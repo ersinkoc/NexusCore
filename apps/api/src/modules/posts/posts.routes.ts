@@ -8,7 +8,6 @@ import {
   postIdParamSchema,
   postSlugParamSchema,
 } from '@nexuscore/types';
-import { ValidationError } from '../../core/errors';
 import { asyncHandler } from '../../shared/utils/async-handler';
 
 const router: Router = Router();
