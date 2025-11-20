@@ -13,6 +13,7 @@ import { logger } from '../../core/logger';
 export class AuthService {
   /**
    * Register a new user
+   * Uses transaction to ensure user and refresh token are created atomically
    */
   async register(input: RegisterInput) {
     // Check if user already exists
@@ -27,42 +28,64 @@ export class AuthService {
     // Hash password
     const hashedPassword = await PasswordService.hash(input.password);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email: input.email,
-        password: hashedPassword,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        role: UserRole.USER,
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        createdAt: true,
-      },
+    // Use transaction to create user and refresh token atomically
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          email: input.email,
+          password: hashedPassword,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          role: UserRole.USER,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+
+      // Generate JWT tokens
+      const jwtPayload: JWTPayload = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      };
+
+      const accessToken = JWTService.generateAccessToken(jwtPayload);
+      const refreshToken = JWTService.generateRefreshToken(jwtPayload);
+
+      // Calculate expiry (7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // Store refresh token in database
+      await tx.refreshToken.create({
+        data: {
+          token: refreshToken,
+          userId: user.id,
+          expiresAt,
+        },
+      });
+
+      return { user, accessToken, refreshToken };
     });
 
-    logger.info('User registered', { userId: user.id, email: user.email });
+    logger.info('User registered', { userId: result.user.id, email: result.user.email });
 
-    // Emit event for other modules
+    // Emit event for other modules (after successful transaction)
     eventBus.emit('auth.registered', {
-      userId: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
+      userId: result.user.id,
+      email: result.user.email,
+      firstName: result.user.firstName,
+      lastName: result.user.lastName,
     });
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-
-    return {
-      user,
-      ...tokens,
-    };
+    return result;
   }
 
   /**
@@ -74,19 +97,15 @@ export class AuthService {
       where: { email: input.email },
     });
 
-    if (!user) {
-      throw new UnauthorizedError('Invalid credentials');
-    }
+    // Use dummy hash to prevent timing attacks
+    // Always perform password verification regardless of user existence
+    // This ensures consistent response times for valid/invalid emails
+    const dummyHash = '$2b$10$YQvZ8Xw5rJZK5X5Z5X5Z5eN.rR8X5X5X5X5X5X5X5X5X5X5X5X5X5';
+    const passwordToVerify = user?.password || dummyHash;
+    const isValidPassword = await PasswordService.verify(input.password, passwordToVerify);
 
-    // Check if user is active
-    if (!user.isActive) {
-      throw new UnauthorizedError('Account is deactivated');
-    }
-
-    // Verify password
-    const isValidPassword = await PasswordService.verify(input.password, user.password);
-
-    if (!isValidPassword) {
+    // Check user existence and active status after password verification
+    if (!user || !user.isActive || !isValidPassword) {
       throw new UnauthorizedError('Invalid credentials');
     }
 
@@ -143,6 +162,7 @@ export class AuthService {
 
   /**
    * Refresh access token using refresh token
+   * Uses transaction to ensure old token deletion and new token creation are atomic
    */
   async refresh(refreshToken: string) {
     // Check if refresh token exists in database first
@@ -169,15 +189,39 @@ export class AuthService {
       throw new UnauthorizedError('Account is deactivated');
     }
 
-    // Delete old refresh token (rotation)
-    await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+    // Use transaction for token rotation: delete old, create new atomically
+    const tokens = await prisma.$transaction(async (tx) => {
+      // Delete old refresh token (rotation)
+      await tx.refreshToken.delete({ where: { id: storedToken.id } });
 
-    // Generate new tokens
-    const tokens = await this.generateTokens(
-      storedToken.user.id,
-      storedToken.user.email,
-      storedToken.user.role
-    );
+      // Generate JWT tokens
+      const jwtPayload: JWTPayload = {
+        userId: storedToken.user.id,
+        email: storedToken.user.email,
+        role: storedToken.user.role,
+      };
+
+      const accessToken = JWTService.generateAccessToken(jwtPayload);
+      const newRefreshToken = JWTService.generateRefreshToken(jwtPayload);
+
+      // Calculate expiry (7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // Store new refresh token in database
+      await tx.refreshToken.create({
+        data: {
+          token: newRefreshToken,
+          userId: storedToken.user.id,
+          expiresAt,
+        },
+      });
+
+      return {
+        accessToken,
+        refreshToken: newRefreshToken,
+      };
+    });
 
     logger.info('Token refreshed', { userId: storedToken.user.id });
 

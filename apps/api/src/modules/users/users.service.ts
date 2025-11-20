@@ -27,7 +27,8 @@ export class UsersService {
     const skip = (page - 1) * limit;
 
     // Validate sortBy field against whitelist to prevent SQL injection
-    if (!UsersService.ALLOWED_SORT_FIELDS.includes(sortBy as any)) {
+    type AllowedSortField = (typeof UsersService.ALLOWED_SORT_FIELDS)[number];
+    if (!UsersService.ALLOWED_SORT_FIELDS.includes(sortBy as AllowedSortField)) {
       throw new ValidationError(
         `Invalid sort field. Allowed fields: ${UsersService.ALLOWED_SORT_FIELDS.join(', ')}`
       );

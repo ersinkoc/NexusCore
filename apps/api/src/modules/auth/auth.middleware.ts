@@ -81,7 +81,15 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
       (req as AuthenticatedRequest).user = payload;
     }
   } catch (error) {
-    // Silently fail - user is optional
+    // Log token verification errors for security monitoring
+    // but continue without user (optional auth)
+    if (error instanceof Error) {
+      const { logger } = require('../../core/logger');
+      logger.warn('Invalid token in optional auth', {
+        error: error.message,
+        path: req.path,
+      });
+    }
   }
 
   next();

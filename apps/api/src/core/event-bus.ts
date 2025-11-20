@@ -58,6 +58,8 @@ export class EventBus implements IEventBus {
       try {
         await handler(payload);
       } catch (error) {
+        // Log errors but don't propagate to prevent one handler failure
+        // from breaking other event handlers or the emitting code
         logger.error(`Error in event handler for "${event}":`, error);
       }
     };
@@ -77,6 +79,8 @@ export class EventBus implements IEventBus {
       try {
         await handler(payload);
       } catch (error) {
+        // Log errors but don't propagate to prevent one handler failure
+        // from breaking other event handlers or the emitting code
         logger.error(`Error in event handler for "${event}":`, error);
       }
     };
@@ -108,6 +112,8 @@ export class EventBus implements IEventBus {
       try {
         await handler(payload);
       } catch (error) {
+        // Log errors but don't propagate to prevent one handler failure
+        // from breaking other event handlers or the emitting code
         logger.error(`Error in one-time event handler for "${event}":`, error);
       } finally {
         // Clean up from handlerMap after execution

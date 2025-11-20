@@ -43,18 +43,14 @@ const router: Router = Router();
  *       200:
  *         description: Posts retrieved successfully
  */
-router.get('/', async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
     const query = queryPostsSchema.parse(req.query);
     const result = await PostsService.findMany(query);
     res.json(result);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'ZodError') {
-      throw new ValidationError('Invalid query parameters', error);
-    }
-    throw error;
-  }
-});
+  })
+);
 
 /**
  * @swagger
@@ -117,8 +113,10 @@ router.get(
  *       401:
  *         description: Unauthorized
  */
-router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  try {
+router.post(
+  '/',
+  requireAuth,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
@@ -127,13 +125,8 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response): 
     const data = createPostSchema.parse(req.body);
     const post = await PostsService.create(req.user.userId, data);
     res.status(201).json(post);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'ZodError') {
-      throw new ValidationError('Invalid post data', error);
-    }
-    throw error;
-  }
-});
+  })
+);
 
 /**
  * @swagger
@@ -201,8 +194,10 @@ router.get(
  *       404:
  *         description: Post not found
  */
-router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  try {
+router.put(
+  '/:id',
+  requireAuth,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.user) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
@@ -211,13 +206,8 @@ router.put('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
     const data = updatePostSchema.parse(req.body);
     const post = await PostsService.update(req.params.id, req.user.userId, req.user.role, data);
     res.json(post);
-  } catch (error) {
-    if (error instanceof Error && error.name === 'ZodError') {
-      throw new ValidationError('Invalid post data', error);
-    }
-    throw error;
-  }
-});
+  })
+);
 
 /**
  * @swagger
