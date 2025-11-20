@@ -35,9 +35,11 @@ export class PostsService {
       throw new ValidationError('Title must contain at least one alphanumeric character');
     }
 
-    // Always append timestamp + random suffix to ensure uniqueness even under concurrent requests
+    // Always append timestamp + cryptographically secure random suffix to ensure uniqueness
     // This prevents race conditions where multiple requests create posts with same title simultaneously
-    const slug = `${baseSlug}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const crypto = await import('crypto');
+    const randomPart = crypto.randomBytes(4).toString('hex');
+    const slug = `${baseSlug}-${Date.now()}-${randomPart}`;
 
     // Create post with guaranteed unique slug
     const post = await prisma.post.create({
@@ -141,9 +143,9 @@ export class PostsService {
           },
         },
       })
-      .catch((error: any) => {
-        // If post not found, Prisma throws error
-        if (error.code === 'P2025') {
+      .catch((error: unknown) => {
+        // If post not found, Prisma throws error with code P2025
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
           throw new NotFoundError('Post not found');
         }
         throw error;
@@ -173,9 +175,9 @@ export class PostsService {
           },
         },
       })
-      .catch((error: any) => {
-        // If post not found, Prisma throws error
-        if (error.code === 'P2025') {
+      .catch((error: unknown) => {
+        // If post not found, Prisma throws error with code P2025
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
           throw new NotFoundError('Post not found');
         }
         throw error;

@@ -112,13 +112,15 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Demo credentials: <br />
-              Admin: admin@nexuscore.local / Admin123! <br />
-              User: user@nexuscore.local / User123!
-            </p>
-          </div>
+          {import.meta.env.DEV && (
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                Demo credentials: <br />
+                Admin: admin@nexuscore.local / Admin123! <br />
+                User: user@nexuscore.local / User123!
+              </p>
+            </div>
+          )}
         </form>
       </div>
     </div>

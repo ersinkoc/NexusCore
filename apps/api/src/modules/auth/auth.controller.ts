@@ -123,7 +123,7 @@ export class AuthController {
    * GET /api/auth/me
    */
   me = asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
 
     res.status(200).json({
       success: true,

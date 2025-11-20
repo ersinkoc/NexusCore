@@ -81,7 +81,24 @@ export class JWTService {
   }
 
   /**
-   * Decode token without verification (for debugging)
+   * Decode token without verification (for debugging ONLY)
+   *
+   * ⚠️ **SECURITY WARNING**: This method does NOT verify the token signature!
+   *
+   * This method should NEVER be used for authentication or authorization decisions.
+   * It simply decodes the JWT payload without validating its authenticity.
+   * An attacker can forge tokens that this method will happily decode.
+   *
+   * **Valid use cases:**
+   * - Debugging during development
+   * - Inspecting token structure in logs
+   * - Reading public claims from already-verified tokens
+   *
+   * **ALWAYS use verifyAccessToken() or verifyRefreshToken() for auth!**
+   *
+   * @param token - JWT token to decode
+   * @returns Decoded payload or null if invalid format
+   * @deprecated Consider removing this method or using verify methods instead
    */
   static decode(token: string): JWTPayload | null {
     return jwt.decode(token) as JWTPayload | null;
