@@ -3,7 +3,9 @@ import { Request, Response } from 'express';
 import { PaginationSchema, IdParamSchema, UpdateUserSchema, UserRole } from '@nexuscore/types';
 
 import { asyncHandler } from '../../shared/utils';
+import { ForbiddenError } from '../../core/errors';
 import { UsersService } from './users.service';
+import { AuthenticatedRequest } from '../auth/auth.middleware';
 
 const usersService = new UsersService();
 
@@ -36,9 +38,22 @@ export class UsersController {
   /**
    * Get user by ID
    * GET /api/users/:id
+   * Authorization: Users can only view their own profile unless they are ADMIN/MODERATOR
    */
   getUserById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = IdParamSchema.parse(req.params);
+    const authReq = req as AuthenticatedRequest;
+    const currentUser = authReq.user;
+
+    // Check authorization: user can view their own profile OR must be admin/moderator
+    const isOwnProfile = currentUser?.userId === id;
+    const isAdminOrModerator =
+      currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.MODERATOR;
+
+    if (!isOwnProfile && !isAdminOrModerator) {
+      throw new ForbiddenError('You can only view your own profile');
+    }
+
     const user = await usersService.getUserById(id);
 
     res.status(200).json({

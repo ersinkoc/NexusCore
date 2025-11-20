@@ -2,6 +2,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Application, Request, Response } from 'express';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 import { errorHandler } from './core/middleware/error.middleware';
 import { requestLogger } from './core/middleware/logger.middleware';
@@ -29,6 +30,31 @@ export class App {
         credentials: true,
       })
     );
+
+    // Rate limiting - General API protection
+    const apiLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100, // Limit each IP to 100 requests per windowMs
+      message: 'Too many requests from this IP, please try again later.',
+      standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+      legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    });
+
+    // Stricter rate limiting for authentication endpoints
+    const authLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 5, // Limit each IP to 5 login/register attempts per windowMs
+      message: 'Too many authentication attempts, please try again later.',
+      standardHeaders: true,
+      legacyHeaders: false,
+      skipSuccessfulRequests: true, // Don't count successful requests
+    });
+
+    // Apply general rate limiter to all API routes
+    this.app.use('/api/', apiLimiter);
+
+    // Stricter rate limiting for auth routes (will be applied in auth module)
+    this.app.set('authLimiter', authLimiter);
 
     // Body parsing
     this.app.use(express.json({ limit: '10mb' }));
