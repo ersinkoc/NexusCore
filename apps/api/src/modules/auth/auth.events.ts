@@ -17,11 +17,14 @@ export async function onUserRegistered(payload: {
   logger.info('New user registered', {
     userId: payload.userId,
     email: payload.email,
+    fullName: `${payload.firstName} ${payload.lastName}`,
   });
 
-  // TODO: Send welcome email
-  // TODO: Create default user settings
-  // TODO: Track analytics event
+  // Future enhancements (not implemented):
+  // - Send welcome email using email service
+  // - Create default user settings/preferences
+  // - Track analytics event for user acquisition metrics
+  // - Set up user onboarding workflow
 }
 
 /**
@@ -31,11 +34,14 @@ export async function onUserLogin(payload: { userId: string; email: string }) {
   logger.info('User login event', {
     userId: payload.userId,
     email: payload.email,
+    timestamp: new Date().toISOString(),
   });
 
-  // TODO: Update last login timestamp
-  // TODO: Track analytics event
-  // TODO: Send login notification email (if enabled)
+  // Future enhancements (not implemented):
+  // - Update lastLoginAt timestamp in user table
+  // - Track login analytics event (device, location, etc.)
+  // - Send login notification email if suspicious activity detected
+  // - Update user session tracking table
 }
 
 /**

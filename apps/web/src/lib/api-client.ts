@@ -27,23 +27,38 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - Handle token refresh
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value?: unknown) => void;
-  reject: (reason?: unknown) => void;
-}> = [];
+// Response interceptor - Handle token refresh with promise-based lock
+let refreshingPromise: Promise<string> | null = null;
 
-const processQueue = (error: Error | null, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
+const refreshToken = async (): Promise<string> => {
+  // If already refreshing, return the existing promise
+  if (refreshingPromise) {
+    return refreshingPromise;
+  }
+
+  // Create new refresh promise
+  refreshingPromise = (async () => {
+    try {
+      const response = await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
+      const { accessToken } = response.data.data;
+
+      // Store new access token
+      localStorage.setItem('accessToken', accessToken);
+
+      return accessToken;
+    } catch (error) {
+      // Refresh failed - clear auth and redirect to login
+      localStorage.removeItem('accessToken');
+      const basePath = import.meta.env.BASE_URL || '/';
+      window.location.href = `${basePath}login`.replace('//', '/');
+      throw error;
+    } finally {
+      // Clear the promise after completion (success or failure)
+      refreshingPromise = null;
     }
-  });
+  })();
 
-  failedQueue = [];
+  return refreshingPromise;
 };
 
 apiClient.interceptors.response.use(
@@ -55,54 +70,22 @@ apiClient.interceptors.response.use(
 
     // If error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        // If already refreshing, queue this request
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            return apiClient(originalRequest);
-          })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        // Attempt to refresh token
-        const response = await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
+        // Attempt to refresh token (uses promise-based lock to prevent concurrent refreshes)
+        const accessToken = await refreshToken();
 
-        const { accessToken } = response.data.data;
-
-        // Store new access token
-        localStorage.setItem('accessToken', accessToken);
-
-        // Update authorization header
+        // Update authorization header with new token
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
 
-        // Process queued requests
-        processQueue(null, accessToken);
-
-        // Retry original request
+        // Retry original request with new token
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - clear auth and redirect to login
-        processQueue(refreshError as Error, null);
-        localStorage.removeItem('accessToken');
-        // Use BASE_URL from environment or default to root
-        const basePath = import.meta.env.BASE_URL || '/';
-        window.location.href = `${basePath}login`.replace('//', '/');
+        // Refresh failed - error already handled in refreshToken()
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
 
