@@ -20,7 +20,7 @@ export class AuthController {
    */
   register = asyncHandler(async (req: Request, res: Response) => {
     const input = RegisterSchema.parse(req.body);
-    const result = await authService.register(input);
+    const result = await authService.register(input, req);
 
     // Generate CSRF token for authenticated session
     const csrfToken = CsrfService.generateToken();
@@ -35,6 +35,14 @@ export class AuthController {
 
     // Set CSRF token as httpOnly cookie
     res.cookie('csrfToken', csrfToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set session ID as httpOnly cookie
+    res.cookie('sessionId', result.sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -57,7 +65,7 @@ export class AuthController {
    */
   login = asyncHandler(async (req: Request, res: Response) => {
     const input = LoginSchema.parse(req.body);
-    const result = await authService.login(input);
+    const result = await authService.login(input, req);
 
     // Generate CSRF token for authenticated session
     const csrfToken = CsrfService.generateToken();
@@ -72,6 +80,14 @@ export class AuthController {
 
     // Set CSRF token as httpOnly cookie
     res.cookie('csrfToken', csrfToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set session ID as httpOnly cookie
+    res.cookie('sessionId', result.sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -94,14 +110,17 @@ export class AuthController {
    */
   logout = asyncHandler(async (req: Request, res: Response) => {
     const refreshToken = req.cookies.refreshToken;
+    const sessionId = req.cookies.sessionId;
+    const user = (req as AuthenticatedRequest).user;
 
     if (refreshToken) {
-      await authService.logout(refreshToken);
+      await authService.logout(refreshToken, sessionId, user?.userId, req);
     }
 
-    // Clear refresh token and CSRF token cookies
+    // Clear refresh token, CSRF token, and session ID cookies
     res.clearCookie('refreshToken');
     res.clearCookie('csrfToken');
+    res.clearCookie('sessionId');
 
     res.status(200).json({
       success: true,
@@ -120,7 +139,7 @@ export class AuthController {
       throw new UnauthorizedError('Refresh token not found');
     }
 
-    const result = await authService.refresh(refreshToken);
+    const result = await authService.refresh(refreshToken, req);
 
     // Set new refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
@@ -162,11 +181,12 @@ export class AuthController {
       throw new UnauthorizedError('User not authenticated');
     }
 
-    const result = await authService.logoutAll(user.userId);
+    const result = await authService.logoutAll(user.userId, req);
 
-    // Clear current refresh token and CSRF token cookies
+    // Clear current refresh token, CSRF token, and session ID cookies
     res.clearCookie('refreshToken');
     res.clearCookie('csrfToken');
+    res.clearCookie('sessionId');
 
     res.status(200).json({
       success: true,

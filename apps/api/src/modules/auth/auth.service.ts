@@ -1,8 +1,16 @@
 import { prisma } from '@nexuscore/db';
 import { LoginInput, RegisterInput, JWTPayload, UserRole } from '@nexuscore/types';
+import { Request } from 'express';
 
-import { ConflictError, UnauthorizedError, NotFoundError } from '../../core/errors';
-import { PasswordService, JWTService } from '../../shared/services';
+import { ConflictError, UnauthorizedError, NotFoundError, ForbiddenError } from '../../core/errors';
+import {
+  PasswordService,
+  JWTService,
+  SessionService,
+  AuditService,
+  AccountLockoutService,
+} from '../../shared/services';
+import { AuditAction } from '../../shared/services/audit.service';
 import { eventBus } from '../../core/event-bus';
 import { logger } from '../../core/logger';
 
@@ -15,7 +23,7 @@ export class AuthService {
    * Register a new user
    * Uses transaction to ensure user and refresh token are created atomically
    */
-  async register(input: RegisterInput) {
+  async register(input: RegisterInput, req: Request) {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: input.email },
@@ -80,6 +88,22 @@ export class AuthService {
 
     logger.info('User registered', { userId: result.user.id, email: result.user.email });
 
+    // Create session
+    const { sessionId } = await SessionService.createSession(result.user.id, req);
+
+    // Log audit event
+    await AuditService.log({
+      userId: result.user.id,
+      action: AuditAction.USER_CREATED,
+      entity: 'user',
+      entityId: result.user.id,
+      metadata: {
+        email: result.user.email,
+        role: result.user.role,
+      },
+      req,
+    });
+
     // Emit event for other modules (after successful transaction)
     eventBus.emit('auth.registered', {
       userId: result.user.id,
@@ -88,13 +112,32 @@ export class AuthService {
       lastName: result.user.lastName,
     });
 
-    return result;
+    return { ...result, sessionId };
   }
 
   /**
    * Login user
    */
-  async login(input: LoginInput) {
+  async login(input: LoginInput, req: Request) {
+    // Check if account is locked
+    const lockoutStatus = await AccountLockoutService.isAccountLocked(input.email);
+    if (lockoutStatus.locked) {
+      // Log failed login attempt due to lockout
+      await AuditService.log({
+        action: AuditAction.AUTH_LOGIN_FAILED,
+        entity: 'auth',
+        metadata: {
+          email: input.email,
+          reason: 'account_locked',
+          remainingTime: lockoutStatus.remainingTime,
+        },
+        req,
+      });
+
+      throw new ForbiddenError(
+        `Account is locked due to too many failed login attempts. Please try again in ${Math.ceil((lockoutStatus.remainingTime || 0) / 60)} minutes.`
+      );
+    }
     // Find user
     const user = await prisma.user.findUnique({
       where: { email: input.email },
@@ -109,8 +152,45 @@ export class AuthService {
 
     // Check user existence and active status after password verification
     if (!user || !user.isActive || !isValidPassword) {
+      // Record failed login attempt
+      const shouldLock = await AccountLockoutService.recordFailedAttempt(input.email);
+
+      // Log failed login attempt
+      await AuditService.log({
+        userId: user?.id,
+        action: AuditAction.AUTH_LOGIN_FAILED,
+        entity: 'auth',
+        metadata: {
+          email: input.email,
+          reason: !user
+            ? 'user_not_found'
+            : !user.isActive
+              ? 'account_inactive'
+              : 'invalid_password',
+          accountLocked: shouldLock,
+        },
+        req,
+      });
+
+      if (shouldLock) {
+        // Log account lockout event
+        await AuditService.log({
+          userId: user?.id,
+          action: AuditAction.SECURITY_ACCOUNT_LOCKED,
+          entity: 'security',
+          metadata: {
+            email: input.email,
+            reason: 'excessive_failed_login_attempts',
+          },
+          req,
+        });
+      }
+
       throw new UnauthorizedError('Invalid credentials');
     }
+
+    // Clear failed login attempts on successful authentication
+    await AccountLockoutService.clearFailedAttempts(input.email);
 
     // Check if password needs rehashing
     if (PasswordService.needsRehash(user.password)) {
@@ -122,6 +202,20 @@ export class AuthService {
     }
 
     logger.info('User logged in', { userId: user.id, email: user.email });
+
+    // Create session
+    const { sessionId } = await SessionService.createSession(user.id, req);
+
+    // Log successful login
+    await AuditService.log({
+      userId: user.id,
+      action: AuditAction.AUTH_LOGIN_SUCCESS,
+      entity: 'auth',
+      metadata: {
+        email: user.email,
+      },
+      req,
+    });
 
     // Emit event
     eventBus.emit('auth.login', {
@@ -142,13 +236,14 @@ export class AuthService {
         createdAt: user.createdAt,
       },
       ...tokens,
+      sessionId,
     };
   }
 
   /**
    * Logout user
    */
-  async logout(refreshToken: string) {
+  async logout(refreshToken: string, sessionId?: string, userId?: string, req?: Request) {
     // Delete refresh token from database
     const deleted = await prisma.refreshToken.deleteMany({
       where: { token: refreshToken },
@@ -158,7 +253,22 @@ export class AuthService {
       throw new NotFoundError('Refresh token not found');
     }
 
-    logger.info('User logged out', { refreshToken });
+    // Delete session if provided
+    if (sessionId) {
+      await SessionService.deleteSession(sessionId);
+    }
+
+    // Log audit event
+    if (userId) {
+      await AuditService.log({
+        userId,
+        action: AuditAction.AUTH_LOGOUT,
+        entity: 'auth',
+        req,
+      });
+    }
+
+    logger.info('User logged out', { refreshToken, sessionId });
 
     return { success: true };
   }
@@ -167,13 +277,32 @@ export class AuthService {
    * Logout from all devices
    * Deletes all refresh tokens for a user
    */
-  async logoutAll(userId: string) {
+  async logoutAll(userId: string, req?: Request) {
     // Delete all refresh tokens for this user
     const deleted = await prisma.refreshToken.deleteMany({
       where: { userId },
     });
 
-    logger.info('User logged out from all devices', { userId, count: deleted.count });
+    // Delete all sessions for this user
+    const sessionsDeleted = await SessionService.deleteAllUserSessions(userId);
+
+    // Log audit event
+    await AuditService.log({
+      userId,
+      action: AuditAction.AUTH_LOGOUT_ALL,
+      entity: 'auth',
+      metadata: {
+        tokensDeleted: deleted.count,
+        sessionsDeleted,
+      },
+      req,
+    });
+
+    logger.info('User logged out from all devices', {
+      userId,
+      tokensCount: deleted.count,
+      sessionsCount: sessionsDeleted,
+    });
 
     return { success: true, devicesLoggedOut: deleted.count };
   }
@@ -182,7 +311,7 @@ export class AuthService {
    * Refresh access token using refresh token
    * Uses transaction to ensure old token deletion and new token creation are atomic
    */
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, req?: Request) {
     // Check if refresh token exists in database first
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
@@ -242,6 +371,14 @@ export class AuthService {
     });
 
     logger.info('Token refreshed', { userId: storedToken.user.id });
+
+    // Log audit event
+    await AuditService.log({
+      userId: storedToken.user.id,
+      action: AuditAction.AUTH_TOKEN_REFRESHED,
+      entity: 'auth',
+      req,
+    });
 
     return tokens;
   }

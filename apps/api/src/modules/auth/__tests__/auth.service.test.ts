@@ -1,6 +1,13 @@
+import { Request } from 'express';
 import { AuthService } from '../auth.service';
 import { prisma } from '@nexuscore/db';
-import { PasswordService, JWTService } from '../../../shared/services';
+import {
+  PasswordService,
+  JWTService,
+  SessionService,
+  AuditService,
+  AccountLockoutService,
+} from '../../../shared/services';
 import { eventBus } from '../../../core/event-bus';
 import { logger } from '../../../core/logger';
 import { ConflictError, UnauthorizedError, NotFoundError } from '../../../core/errors';
@@ -50,6 +57,7 @@ jest.mock('../../../core/logger', () => ({
 
 describe('AuthService', () => {
   let authService: AuthService;
+  let mockRequest: Partial<Request>;
 
   // Create tx mocks that mirror the prisma mocks
   const txMocks = {
@@ -69,6 +77,27 @@ describe('AuthService', () => {
   beforeEach(() => {
     authService = new AuthService();
     jest.clearAllMocks();
+
+    // Mock Request object
+    mockRequest = {
+      headers: { 'user-agent': 'test-agent' },
+      socket: { remoteAddress: '127.0.0.1' } as any,
+    };
+
+    // Mock new services
+    (SessionService.createSession as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue({ sessionId: 'session-123' });
+    (SessionService.deleteSession as jest.Mock) = jest.fn().mockResolvedValue(undefined);
+    (SessionService.deleteAllUserSessions as jest.Mock) = jest.fn().mockResolvedValue(2);
+    (AuditService.log as jest.Mock) = jest.fn().mockResolvedValue(undefined);
+    (AccountLockoutService.isAccountLocked as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue({ locked: false });
+    (AccountLockoutService.recordFailedAttempt as jest.Mock) = jest.fn().mockResolvedValue(false);
+    (AccountLockoutService.clearFailedAttempts as jest.Mock) = jest
+      .fn()
+      .mockResolvedValue(undefined);
 
     // Reset transaction mocks
     Object.values(txMocks.user).forEach((fn: jest.Mock) => fn.mockReset());
@@ -106,11 +135,12 @@ describe('AuthService', () => {
       (JWTService.generateAccessToken as jest.Mock).mockReturnValue('access_token');
       (JWTService.generateRefreshToken as jest.Mock).mockReturnValue('refresh_token');
 
-      const result = await authService.register(input);
+      const result = await authService.register(input, mockRequest as Request);
 
       expect(result.user).toEqual(mockUser);
       expect(result.accessToken).toBe('access_token');
       expect(result.refreshToken).toBe('refresh_token');
+      expect(result.sessionId).toBe('session-123');
       expect(txMocks.user.create).toHaveBeenCalledWith({
         data: {
           email: input.email,
@@ -146,9 +176,11 @@ describe('AuthService', () => {
         email: input.email,
       });
 
-      await expect(authService.register(input)).rejects.toThrow(ConflictError);
-      await expect(authService.register(input)).rejects.toThrow(
-        'User with this email already exists'
+      await expect(authService.register(input, mockRequest as Request)).rejects.toThrow(
+        ConflictError
+      );
+      await expect(authService.register(input, mockRequest as Request)).rejects.toThrow(
+        'Registration failed. Please check your information and try again.'
       );
       expect(prisma.user.create).not.toHaveBeenCalled();
     });
@@ -179,11 +211,12 @@ describe('AuthService', () => {
       (JWTService.generateRefreshToken as jest.Mock).mockReturnValue('refresh_token');
       (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
 
-      const result = await authService.login(input);
+      const result = await authService.login(input, mockRequest as Request);
 
       expect(result.user.email).toBe(input.email);
       expect(result.accessToken).toBe('access_token');
       expect(result.refreshToken).toBe('refresh_token');
+      expect(result.sessionId).toBe('session-123');
       expect(eventBus.emit).toHaveBeenCalledWith('auth.login', {
         userId: mockUser.id,
         email: mockUser.email,
@@ -201,9 +234,14 @@ describe('AuthService', () => {
       };
 
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (PasswordService.verify as jest.Mock).mockResolvedValue(false);
 
-      await expect(authService.login(input)).rejects.toThrow(UnauthorizedError);
-      await expect(authService.login(input)).rejects.toThrow('Invalid credentials');
+      await expect(authService.login(input, mockRequest as Request)).rejects.toThrow(
+        UnauthorizedError
+      );
+      await expect(authService.login(input, mockRequest as Request)).rejects.toThrow(
+        'Invalid credentials'
+      );
     });
 
     it('should throw UnauthorizedError if account is deactivated', async () => {
@@ -220,9 +258,14 @@ describe('AuthService', () => {
       };
 
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+      (PasswordService.verify as jest.Mock).mockResolvedValue(false);
 
-      await expect(authService.login(input)).rejects.toThrow(UnauthorizedError);
-      await expect(authService.login(input)).rejects.toThrow('Invalid credentials');
+      await expect(authService.login(input, mockRequest as Request)).rejects.toThrow(
+        UnauthorizedError
+      );
+      await expect(authService.login(input, mockRequest as Request)).rejects.toThrow(
+        'Invalid credentials'
+      );
     });
 
     it('should throw UnauthorizedError if password is invalid', async () => {
@@ -241,8 +284,12 @@ describe('AuthService', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
       (PasswordService.verify as jest.Mock).mockResolvedValue(false);
 
-      await expect(authService.login(input)).rejects.toThrow(UnauthorizedError);
-      await expect(authService.login(input)).rejects.toThrow('Invalid credentials');
+      await expect(authService.login(input, mockRequest as Request)).rejects.toThrow(
+        UnauthorizedError
+      );
+      await expect(authService.login(input, mockRequest as Request)).rejects.toThrow(
+        'Invalid credentials'
+      );
     });
 
     it('should rehash password if needed', async () => {
@@ -273,7 +320,7 @@ describe('AuthService', () => {
       (JWTService.generateRefreshToken as jest.Mock).mockReturnValue('refresh_token');
       (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
 
-      await authService.login(input);
+      await authService.login(input, mockRequest as Request);
 
       expect(PasswordService.hash).toHaveBeenCalledWith(input.password);
       expect(prisma.user.update).toHaveBeenCalledWith({
