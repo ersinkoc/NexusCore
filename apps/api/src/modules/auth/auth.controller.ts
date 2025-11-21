@@ -150,4 +150,30 @@ export class AuthController {
       data: { user },
     });
   });
+
+  /**
+   * Logout from all devices
+   * POST /api/auth/logout-all
+   */
+  logoutAll = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    const result = await authService.logoutAll(user.userId);
+
+    // Clear current refresh token and CSRF token cookies
+    res.clearCookie('refreshToken');
+    res.clearCookie('csrfToken');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Logged out from all devices successfully',
+        devicesLoggedOut: result.devicesLoggedOut,
+      },
+    });
+  });
 }

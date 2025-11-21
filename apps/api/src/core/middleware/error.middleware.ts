@@ -3,23 +3,26 @@ import { ZodError } from 'zod';
 
 import { AppError } from '../errors';
 import { logger } from '../logger';
+import { sanitizeForLogging } from '../../shared/utils/sanitize-logs';
 
 /**
  * Global error handler middleware
  */
-export function errorHandler(
-  err: Error,
-  req: Request,
-  res: Response,
-  _next: NextFunction
-) {
-  // Log error
-  logger.error('Error occurred:', {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
+  // Log error with sanitized details to prevent sensitive data leakage
+  const errorLog: any = {
     message: err.message,
     stack: err.stack,
     path: req.path,
     method: req.method,
-  });
+  };
+
+  // Sanitize error details if present (may contain user input)
+  if ((err as any).details) {
+    errorLog.details = sanitizeForLogging((err as any).details);
+  }
+
+  logger.error('Error occurred:', errorLog);
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {
@@ -54,10 +57,7 @@ export function errorHandler(
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message:
-        process.env.NODE_ENV === 'production'
-          ? 'Internal server error'
-          : err.message,
+      message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     },
   });

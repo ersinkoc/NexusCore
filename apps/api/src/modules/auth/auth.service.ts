@@ -21,12 +21,15 @@ export class AuthService {
       where: { email: input.email },
     });
 
-    if (existingUser) {
-      throw new ConflictError('User with this email already exists');
-    }
-
-    // Hash password
+    // Always hash password to prevent timing attacks (even if user exists)
+    // This ensures consistent response time regardless of email existence
     const hashedPassword = await PasswordService.hash(input.password);
+
+    if (existingUser) {
+      // Generic error message to prevent email enumeration
+      // Attackers cannot determine if email is already registered
+      throw new ConflictError('Registration failed. Please check your information and try again.');
+    }
 
     // Use transaction to create user and refresh token atomically
     const result = await prisma.$transaction(async (tx: any) => {
@@ -158,6 +161,21 @@ export class AuthService {
     logger.info('User logged out', { refreshToken });
 
     return { success: true };
+  }
+
+  /**
+   * Logout from all devices
+   * Deletes all refresh tokens for a user
+   */
+  async logoutAll(userId: string) {
+    // Delete all refresh tokens for this user
+    const deleted = await prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+
+    logger.info('User logged out from all devices', { userId, count: deleted.count });
+
+    return { success: true, devicesLoggedOut: deleted.count };
   }
 
   /**

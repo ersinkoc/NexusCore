@@ -28,5 +28,6 @@ router.post('/refresh', getAuthLimiter, authController.refresh); // Fixed: Add r
 
 // Protected routes
 router.get('/me', requireAuth, authController.me);
+router.post('/logout-all', requireAuth, authController.logoutAll);
 
 export default router;
