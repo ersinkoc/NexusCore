@@ -97,7 +97,7 @@ export default function Dashboard() {
             <li>✅ Turborepo monorepo structure</li>
           </ul>
 
-          {(user?.role === 'admin' || user?.role === 'moderator') && (
+          {(user?.role === 'ADMIN' || user?.role === 'MODERATOR') && (
             <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <p className="text-blue-900 font-medium">Admin Access</p>
               <p className="text-blue-700 text-sm mt-1">

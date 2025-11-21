@@ -126,8 +126,8 @@ export class AuthService {
       email: user.email,
     });
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // Generate tokens (cast Prisma UserRole to shared types UserRole - same values)
+    const tokens = await this.generateTokens(user.id, user.email, user.role as UserRole);
 
     return {
       user: {

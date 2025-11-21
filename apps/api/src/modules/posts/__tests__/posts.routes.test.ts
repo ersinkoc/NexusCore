@@ -27,7 +27,7 @@ jest.mock('../../auth/auth.middleware', () => ({
     req.user = {
       userId: TEST_USER_ID,
       email: 'test@example.com',
-      role: 'user',
+      role: 'USER',
     };
     next();
   },
@@ -321,7 +321,7 @@ describe('Posts Routes Integration Tests', () => {
       expect(PostsService.update).toHaveBeenCalledWith(
         TEST_POST_ID,
         TEST_USER_ID,
-        'user',
+        'USER',
         updateData
       );
     });
@@ -360,7 +360,7 @@ describe('Posts Routes Integration Tests', () => {
       const response = await request(app).delete(`/posts/${TEST_POST_ID}`).expect(200);
 
       expect(response.body.message).toContain('deleted');
-      expect(PostsService.delete).toHaveBeenCalledWith(TEST_POST_ID, TEST_USER_ID, 'user');
+      expect(PostsService.delete).toHaveBeenCalledWith(TEST_POST_ID, TEST_USER_ID, 'USER');
     });
 
     it('should return 404 for non-existent post', async () => {
@@ -400,7 +400,7 @@ describe('Posts Routes Integration Tests', () => {
       const response = await request(app).post(`/posts/${TEST_POST_ID}/publish`).expect(200);
 
       expect(response.body.status).toBe(PostStatus.PUBLISHED);
-      expect(PostsService.publish).toHaveBeenCalledWith(TEST_POST_ID, TEST_USER_ID, 'user');
+      expect(PostsService.publish).toHaveBeenCalledWith(TEST_POST_ID, TEST_USER_ID, 'USER');
     });
 
     it('should return 404 for non-existent post', async () => {

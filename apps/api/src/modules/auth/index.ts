@@ -25,5 +25,8 @@ const AuthModule: IModule = {
 export * from './auth.middleware';
 export * from './auth.service';
 
+// Named export for tests and direct imports
+export { AuthModule };
+
 // Default export for module loader
 export default AuthModule;

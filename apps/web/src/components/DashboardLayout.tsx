@@ -71,7 +71,7 @@ export default function DashboardLayout() {
               Posts
             </Link>
 
-            {(user?.role === 'admin' || user?.role === 'moderator') && (
+            {(user?.role === 'ADMIN' || user?.role === 'MODERATOR') && (
               <Link
                 to="/dashboard/users"
                 className="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-md transition"
