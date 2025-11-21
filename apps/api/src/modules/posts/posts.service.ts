@@ -26,8 +26,9 @@ function generateSlug(title: string): string {
 
 export class PostsService {
   /**
-   * Create a new post
-   * Generates unique slug by appending UUID suffix to prevent race conditions
+   * Create a new post with retry logic for unique constraint violations
+   * Generates unique slug by appending timestamp + random suffix
+   * Retries with new random suffix if collision occurs (extremely rare)
    */
   static async create(userId: string, input: CreatePostInput) {
     const baseSlug = generateSlug(input.title);
@@ -37,34 +38,70 @@ export class PostsService {
       throw new ValidationError('Title must contain at least one alphanumeric character');
     }
 
-    // Always append timestamp + cryptographically secure random suffix to ensure uniqueness
-    // This prevents race conditions where multiple requests create posts with same title simultaneously
-    const randomPart = randomBytes(4).toString('hex');
-    const slug = `${baseSlug}-${Date.now()}-${randomPart}`;
+    const maxRetries = 5; // Maximum retry attempts for unique constraint violations
+    let lastError: Error | null = null;
 
-    // Create post with guaranteed unique slug
-    const post = await prisma.post.create({
-      data: {
-        ...input,
-        slug,
-        authorId: userId,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
+    // Retry loop for unique constraint violations
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Generate unique slug with timestamp + cryptographically secure random suffix
+        // This prevents race conditions where multiple requests create posts with same title simultaneously
+        const randomPart = randomBytes(4).toString('hex');
+        const slug = `${baseSlug}-${Date.now()}-${randomPart}`;
+
+        // Attempt to create post with generated slug
+        const post = await prisma.post.create({
+          data: {
+            ...input,
+            slug,
+            authorId: userId,
           },
-        },
-      },
+          include: {
+            author: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        });
+
+        logger.info('Post created', { postId: post.id, userId, attempts: attempt + 1 });
+        eventBus.emit('post.created', { post, userId });
+
+        return post;
+      } catch (error: any) {
+        // Check if error is a Prisma unique constraint violation on slug
+        if (error.code === 'P2002' && error.meta?.target?.includes('slug')) {
+          lastError = error;
+          logger.warn(`Slug collision detected, retrying (attempt ${attempt + 1}/${maxRetries})`, {
+            baseSlug,
+            userId,
+          });
+
+          // Wait a bit before retry to reduce chance of another collision
+          await new Promise((resolve) => setTimeout(resolve, 10 * (attempt + 1)));
+          continue;
+        }
+
+        // Not a slug collision - rethrow
+        throw error;
+      }
+    }
+
+    // All retries exhausted - this should be extremely rare
+    logger.error('Failed to create post after max retries due to slug collisions', {
+      baseSlug,
+      userId,
+      maxRetries,
     });
 
-    logger.info('Post created', { postId: post.id, userId });
-    eventBus.emit('post.created', { post, userId });
-
-    return post;
+    throw new ValidationError(
+      'Failed to create post due to slug generation conflicts. Please try again.',
+      { cause: lastError }
+    );
   }
 
   /**

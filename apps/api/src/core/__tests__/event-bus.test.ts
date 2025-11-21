@@ -89,7 +89,7 @@ describe('EventBus', () => {
       expect(count).toBe(1);
     });
 
-    it('should handle errors in once handler gracefully', async () => {
+    it('should handle errors in once handler with retry mechanism', async () => {
       const eventName = 'once.error.event';
       const errorHandler = jest.fn(() => {
         throw new Error('Handler error');
@@ -97,15 +97,25 @@ describe('EventBus', () => {
 
       eventBus.once(eventName, errorHandler);
 
-      // Emit event - error should be caught and logged
-      await eventBus.emit(eventName, { test: 'data' });
+      // Emit event - error should trigger retries and then dead-letter queue
+      eventBus.emit(eventName, { test: 'data' });
 
+      // Wait for all retries to complete (100ms + 200ms + 400ms delays + processing time)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Handler should be called multiple times due to retries (initial + 3 retries = 4 total)
       expect(errorHandler).toHaveBeenCalled();
+
+      // After all retries, error should be logged with retry count
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('one-time'),
-        expect.any(Error)
+        expect.stringContaining('Event handler failed after'),
+        expect.objectContaining({
+          error: expect.any(Error),
+          payload: { test: 'data' },
+          attempts: 4,
+        })
       );
-    });
+    }, 10000);
   });
 
   describe('off', () => {
