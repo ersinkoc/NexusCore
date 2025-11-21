@@ -4,6 +4,8 @@ import { LoginSchema, RegisterSchema, AuthenticatedRequest } from '@nexuscore/ty
 
 import { asyncHandler } from '../../shared/utils';
 import { AuthService } from './auth.service';
+import { CsrfService } from '../../shared/services';
+import { UnauthorizedError } from '../../core/errors';
 
 const authService = new AuthService();
 
@@ -20,8 +22,19 @@ export class AuthController {
     const input = RegisterSchema.parse(req.body);
     const result = await authService.register(input);
 
+    // Generate CSRF token for authenticated session
+    const csrfToken = CsrfService.generateToken();
+
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set CSRF token as httpOnly cookie
+    res.cookie('csrfToken', csrfToken.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -33,6 +46,7 @@ export class AuthController {
       data: {
         user: result.user,
         accessToken: result.accessToken,
+        csrfToken: csrfToken.signature, // Client includes this in X-CSRF-Token header
       },
     });
   });
@@ -45,8 +59,19 @@ export class AuthController {
     const input = LoginSchema.parse(req.body);
     const result = await authService.login(input);
 
+    // Generate CSRF token for authenticated session
+    const csrfToken = CsrfService.generateToken();
+
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set CSRF token as httpOnly cookie
+    res.cookie('csrfToken', csrfToken.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -58,6 +83,7 @@ export class AuthController {
       data: {
         user: result.user,
         accessToken: result.accessToken,
+        csrfToken: csrfToken.signature, // Client includes this in X-CSRF-Token header
       },
     });
   });
@@ -73,8 +99,9 @@ export class AuthController {
       await authService.logout(refreshToken);
     }
 
-    // Clear refresh token cookie
+    // Clear refresh token and CSRF token cookies
     res.clearCookie('refreshToken');
+    res.clearCookie('csrfToken');
 
     res.status(200).json({
       success: true,
@@ -90,14 +117,7 @@ export class AuthController {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Refresh token not found',
-        },
-      });
-      return;
+      throw new UnauthorizedError('Refresh token not found');
     }
 
     const result = await authService.refresh(refreshToken);

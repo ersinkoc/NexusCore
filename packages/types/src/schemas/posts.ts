@@ -58,7 +58,9 @@ export const postSlugParamSchema = z.object({
     .string()
     .min(1, 'Slug is required')
     .max(255, 'Slug too long')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Invalid slug format'),
+    // Updated regex to match generated slug format: base-slug-timestamp-randomhex
+    // Example: my-post-title-1732204800000-a1b2c3d4
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*-\d+-[a-f0-9]{8}$/, 'Invalid slug format'),
 });
 
 /**

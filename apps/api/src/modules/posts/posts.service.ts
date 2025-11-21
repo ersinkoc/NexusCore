@@ -11,6 +11,7 @@ import {
 import { NotFoundError, ForbiddenError, ValidationError } from '../../core/errors';
 import { eventBus } from '../../core/event-bus';
 import { logger } from '../../core/logger';
+import { SanitizationService } from '../../shared/services';
 
 /**
  * Generate URL-friendly slug from title
@@ -31,7 +32,20 @@ export class PostsService {
    * Retries with new random suffix if collision occurs (extremely rare)
    */
   static async create(userId: string, input: CreatePostInput) {
-    const baseSlug = generateSlug(input.title);
+    // Sanitize user input to prevent XSS attacks
+    const sanitizedTitle = SanitizationService.sanitizeText(input.title);
+    const sanitizedContent = SanitizationService.sanitizeHtml(input.content);
+    const sanitizedExcerpt = input.excerpt
+      ? SanitizationService.sanitizeText(input.excerpt)
+      : undefined;
+    const sanitizedMetaTitle = input.metaTitle
+      ? SanitizationService.sanitizeText(input.metaTitle)
+      : undefined;
+    const sanitizedMetaDescription = input.metaDescription
+      ? SanitizationService.sanitizeText(input.metaDescription)
+      : undefined;
+
+    const baseSlug = generateSlug(sanitizedTitle);
 
     // Prevent empty slugs
     if (!baseSlug || baseSlug.length === 0) {
@@ -52,7 +66,12 @@ export class PostsService {
         // Attempt to create post with generated slug
         const post = await prisma.post.create({
           data: {
-            ...input,
+            title: sanitizedTitle,
+            content: sanitizedContent,
+            excerpt: sanitizedExcerpt,
+            metaTitle: sanitizedMetaTitle,
+            metaDescription: sanitizedMetaDescription,
+            status: input.status,
             slug,
             authorId: userId,
           },
@@ -241,9 +260,33 @@ export class PostsService {
       throw new ForbiddenError('You do not have permission to update this post');
     }
 
+    // Sanitize user input to prevent XSS attacks
+    const sanitizedData: UpdatePostInput = {};
+    if (input.title !== undefined) {
+      sanitizedData.title = SanitizationService.sanitizeText(input.title);
+    }
+    if (input.content !== undefined) {
+      sanitizedData.content = SanitizationService.sanitizeHtml(input.content);
+    }
+    if (input.excerpt !== undefined) {
+      sanitizedData.excerpt = SanitizationService.sanitizeText(input.excerpt);
+    }
+    if (input.metaTitle !== undefined) {
+      sanitizedData.metaTitle = SanitizationService.sanitizeText(input.metaTitle);
+    }
+    if (input.metaDescription !== undefined) {
+      sanitizedData.metaDescription = SanitizationService.sanitizeText(input.metaDescription);
+    }
+    if (input.status !== undefined) {
+      sanitizedData.status = input.status;
+    }
+    if (input.publishedAt !== undefined) {
+      sanitizedData.publishedAt = input.publishedAt;
+    }
+
     const updated = await prisma.post.update({
       where: { id },
-      data: input,
+      data: sanitizedData,
       include: {
         author: {
           select: {

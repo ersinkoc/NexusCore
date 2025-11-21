@@ -29,7 +29,7 @@ export class AuthService {
     const hashedPassword = await PasswordService.hash(input.password);
 
     // Use transaction to create user and refresh token atomically
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Create user
       const user = await tx.user.create({
         data: {
@@ -190,7 +190,7 @@ export class AuthService {
     }
 
     // Use transaction for token rotation: delete old, create new atomically
-    const tokens = await prisma.$transaction(async (tx) => {
+    const tokens = await prisma.$transaction(async (tx: any) => {
       // Delete old refresh token (rotation)
       await tx.refreshToken.delete({ where: { id: storedToken.id } });
 
@@ -230,34 +230,73 @@ export class AuthService {
 
   /**
    * Generate access and refresh tokens
+   * Implements token limit per user and cleanup of expired tokens
    */
   private async generateTokens(userId: string, email: string, role: UserRole) {
-    const jwtPayload: JWTPayload = {
-      userId,
-      email,
-      role,
-    };
+    const MAX_TOKENS_PER_USER = 5; // Maximum active tokens per user
 
-    const accessToken = JWTService.generateAccessToken(jwtPayload);
-    const refreshToken = JWTService.generateRefreshToken(jwtPayload);
+    // Use transaction for atomic cleanup and token creation
+    const result = await prisma.$transaction(async (tx: any) => {
+      // 1. Delete expired tokens for this user
+      await tx.refreshToken.deleteMany({
+        where: {
+          userId,
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
 
-    // Calculate expiry (7 days)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+      // 2. Get active tokens count
+      const activeTokens = await tx.refreshToken.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
 
-    // Store refresh token in database
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
+      // 3. If user has too many tokens, delete oldest ones
+      if (activeTokens.length >= MAX_TOKENS_PER_USER) {
+        const tokensToDelete = activeTokens.slice(0, activeTokens.length - MAX_TOKENS_PER_USER + 1);
+        await tx.refreshToken.deleteMany({
+          where: {
+            id: {
+              in: tokensToDelete.map((t: any) => t.id),
+            },
+          },
+        });
+        logger.info('Deleted old refresh tokens', { userId, count: tokensToDelete.length });
+      }
+
+      // 4. Generate new tokens
+      const jwtPayload: JWTPayload = {
         userId,
-        expiresAt,
-      },
+        email,
+        role,
+      };
+
+      const accessToken = JWTService.generateAccessToken(jwtPayload);
+      const refreshToken = JWTService.generateRefreshToken(jwtPayload);
+
+      // Calculate expiry (7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // 5. Store new refresh token in database
+      await tx.refreshToken.create({
+        data: {
+          token: refreshToken,
+          userId,
+          expiresAt,
+        },
+      });
+
+      return {
+        accessToken,
+        refreshToken,
+      };
     });
 
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return result;
   }
 
   /**

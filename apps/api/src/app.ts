@@ -22,8 +22,30 @@ export class App {
   async initialize(): Promise<void> {
     logger.info('Initializing application...');
 
-    // Security middleware
-    this.app.use(helmet());
+    // Security middleware with strict CSP
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline for styled-components support
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+          },
+        },
+        strictTransportSecurity: {
+          maxAge: 31536000, // 1 year
+          includeSubDomains: true,
+          preload: true,
+        },
+      })
+    );
     this.app.use(
       cors({
         origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
@@ -50,15 +72,28 @@ export class App {
       skipSuccessfulRequests: true, // Don't count successful requests
     });
 
+    // Rate limiting for resource-intensive operations (post creation, etc.)
+    const creationLimiter = rateLimit({
+      windowMs: 60 * 60 * 1000, // 1 hour
+      max: 10, // Limit each IP to 10 create operations per hour
+      message: 'Too many create requests, please try again later.',
+      standardHeaders: true,
+      legacyHeaders: false,
+    });
+
     // Apply general rate limiter to all API routes
     this.app.use('/api/', apiLimiter);
 
     // Stricter rate limiting for auth routes (will be applied in auth module)
     this.app.set('authLimiter', authLimiter);
 
-    // Body parsing
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    // Rate limiting for creation endpoints (will be applied in resource modules)
+    this.app.set('creationLimiter', creationLimiter);
+
+    // Body parsing - Reduced from 10mb to 1mb for security
+    // If specific endpoints need larger limits, apply them individually
+    this.app.use(express.json({ limit: '1mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '1mb' }));
     this.app.use(cookieParser());
 
     // Request logging
