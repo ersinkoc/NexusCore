@@ -1,12 +1,25 @@
 import { Application, Router } from 'express';
-import { readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { readdirSync, existsSync } from 'fs';
+import { join } from 'path';
 import { pathToFileURL } from 'url';
-import { fileURLToPath } from 'url';
 
-// ESM compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Get the core directory path - works in both ESM and CJS environments
+const getCoreDir = (): string => {
+  // Check if running from dist (compiled) or src (development/test)
+  const distPath = join(process.cwd(), 'apps/api/dist/core');
+  const srcPath = join(process.cwd(), 'apps/api/src/core');
+  const localDistPath = join(process.cwd(), 'dist/core');
+  const localSrcPath = join(process.cwd(), 'src/core');
+
+  if (existsSync(localDistPath)) return localDistPath;
+  if (existsSync(localSrcPath)) return localSrcPath;
+  if (existsSync(distPath)) return distPath;
+  if (existsSync(srcPath)) return srcPath;
+
+  // Fallback to current working directory + src/core
+  return join(process.cwd(), 'src/core');
+};
+const coreDir = getCoreDir();
 
 import { IModule } from '@nexuscore/types';
 
@@ -29,7 +42,7 @@ export class ModuleLoader {
 
   constructor(app: Application) {
     this.app = app;
-    this.modulesPath = join(__dirname, '../modules');
+    this.modulesPath = join(coreDir, '../modules');
   }
 
   /**

@@ -20,6 +20,21 @@ jest.mock('@nexuscore/db', () => ({
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
+    $transaction: jest.fn((callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        user: {
+          findUnique: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        refreshToken: {
+          create: jest.fn(),
+          findUnique: jest.fn(),
+          delete: jest.fn(),
+          deleteMany: jest.fn(),
+        },
+      })
+    ),
   },
 }));
 
@@ -36,9 +51,33 @@ jest.mock('../../../core/logger', () => ({
 describe('AuthService', () => {
   let authService: AuthService;
 
+  // Create tx mocks that mirror the prisma mocks
+  const txMocks = {
+    user: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    refreshToken: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+  };
+
   beforeEach(() => {
     authService = new AuthService();
     jest.clearAllMocks();
+
+    // Reset transaction mocks
+    Object.values(txMocks.user).forEach((fn: jest.Mock) => fn.mockReset());
+    Object.values(txMocks.refreshToken).forEach((fn: jest.Mock) => fn.mockReset());
+
+    // Configure $transaction to execute callback with txMocks and return its result
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (callback: (tx: typeof txMocks) => Promise<unknown>) => callback(txMocks)
+    );
   });
 
   describe('register', () => {
@@ -62,17 +101,17 @@ describe('AuthService', () => {
 
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
       (PasswordService.hash as jest.Mock).mockResolvedValue(hashedPassword);
-      (prisma.user.create as jest.Mock).mockResolvedValue(mockUser);
+      txMocks.user.create.mockResolvedValue(mockUser);
+      txMocks.refreshToken.create.mockResolvedValue({});
       (JWTService.generateAccessToken as jest.Mock).mockReturnValue('access_token');
       (JWTService.generateRefreshToken as jest.Mock).mockReturnValue('refresh_token');
-      (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
 
       const result = await authService.register(input);
 
       expect(result.user).toEqual(mockUser);
       expect(result.accessToken).toBe('access_token');
       expect(result.refreshToken).toBe('refresh_token');
-      expect(prisma.user.create).toHaveBeenCalledWith({
+      expect(txMocks.user.create).toHaveBeenCalledWith({
         data: {
           email: input.email,
           password: hashedPassword,
@@ -183,7 +222,7 @@ describe('AuthService', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
 
       await expect(authService.login(input)).rejects.toThrow(UnauthorizedError);
-      await expect(authService.login(input)).rejects.toThrow('Account is deactivated');
+      await expect(authService.login(input)).rejects.toThrow('Invalid credentials');
     });
 
     it('should throw UnauthorizedError if password is invalid', async () => {
@@ -292,16 +331,16 @@ describe('AuthService', () => {
 
       (JWTService.verifyRefreshToken as jest.Mock).mockReturnValue(mockPayload);
       (prisma.refreshToken.findUnique as jest.Mock).mockResolvedValue(mockStoredToken);
-      (prisma.refreshToken.delete as jest.Mock).mockResolvedValue({});
+      txMocks.refreshToken.delete.mockResolvedValue({});
+      txMocks.refreshToken.create.mockResolvedValue({});
       (JWTService.generateAccessToken as jest.Mock).mockReturnValue('new_access_token');
       (JWTService.generateRefreshToken as jest.Mock).mockReturnValue('new_refresh_token');
-      (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
 
       const result = await authService.refresh(refreshToken);
 
       expect(result.accessToken).toBe('new_access_token');
       expect(result.refreshToken).toBe('new_refresh_token');
-      expect(prisma.refreshToken.delete).toHaveBeenCalledWith({
+      expect(txMocks.refreshToken.delete).toHaveBeenCalledWith({
         where: { id: mockStoredToken.id },
       });
       expect(logger.info).toHaveBeenCalledWith('Token refreshed', {

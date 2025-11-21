@@ -24,7 +24,7 @@ const getAuthLimiter = (req: Request, _res: Response, next: NextFunction) => {
 router.post('/register', getAuthLimiter, authController.register);
 router.post('/login', getAuthLimiter, authController.login);
 router.post('/logout', requireAuth, authController.logout); // Fixed: Now requires authentication
-router.post('/refresh', authController.refresh);
+router.post('/refresh', getAuthLimiter, authController.refresh); // Fixed: Add rate limiting to prevent refresh token brute force
 
 // Protected routes
 router.get('/me', requireAuth, authController.me);

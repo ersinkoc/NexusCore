@@ -10,9 +10,11 @@ module.exports = {
       'ts-jest',
       {
         tsconfig: {
-          module: 'esnext',
+          module: 'es2022',
           target: 'es2022',
+          moduleResolution: 'node',
         },
+        useESM: true,
       },
     ],
   },

@@ -12,23 +12,128 @@ import {
 import { logger } from './logger';
 
 /**
- * Type-safe Event Bus implementation for decoupled module communication
- * Wraps Node.js EventEmitter with typed interface and logging
+ * Configuration for event handler retry mechanism
+ */
+interface RetryConfig {
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+}
+
+/**
+ * Type-safe Event Bus implementation with retry mechanism
+ * Wraps Node.js EventEmitter with typed interface, logging, and automatic retries
  *
- * Supports both typed events (via EventMap) and generic events for flexibility
+ * Features:
+ * - Typed and generic event support
+ * - Automatic retry with exponential backoff for failed handlers
+ * - Dead-letter queue support for persistent failures
+ * - Configurable via environment variables
  */
 export class EventBus implements IEventBus {
   private emitter: EventEmitter;
   private handlerMap: WeakMap<EventHandler<any>, (...args: unknown[]) => void>;
+  private retryConfig: RetryConfig;
+  private deadLetterQueue: Array<{ event: string; payload: unknown; error: Error }> = [];
 
   constructor() {
     this.emitter = new EventEmitter();
+
     // Configure max listeners from environment or use sensible default
     const maxListeners = process.env.EVENT_BUS_MAX_LISTENERS
       ? parseInt(process.env.EVENT_BUS_MAX_LISTENERS, 10)
       : 100;
     this.emitter.setMaxListeners(maxListeners);
+
     this.handlerMap = new WeakMap();
+
+    // Configure retry mechanism from environment or use defaults
+    this.retryConfig = {
+      maxRetries: process.env.EVENT_BUS_MAX_RETRIES
+        ? parseInt(process.env.EVENT_BUS_MAX_RETRIES, 10)
+        : 3,
+      initialDelayMs: process.env.EVENT_BUS_INITIAL_RETRY_DELAY_MS
+        ? parseInt(process.env.EVENT_BUS_INITIAL_RETRY_DELAY_MS, 10)
+        : 100,
+      maxDelayMs: process.env.EVENT_BUS_MAX_RETRY_DELAY_MS
+        ? parseInt(process.env.EVENT_BUS_MAX_RETRY_DELAY_MS, 10)
+        : 5000,
+      backoffMultiplier: 2,
+    };
+  }
+
+  /**
+   * Retry handler with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    handler: () => Promise<void>,
+    event: string,
+    payload: T,
+    attempt = 0
+  ): Promise<void> {
+    try {
+      await handler();
+    } catch (error) {
+      const isLastAttempt = attempt >= this.retryConfig.maxRetries;
+
+      if (isLastAttempt) {
+        // All retries exhausted - add to dead-letter queue
+        logger.error(
+          `Event handler failed after ${this.retryConfig.maxRetries} retries: "${event}"`,
+          { error, payload, attempts: attempt + 1 }
+        );
+
+        // Store in dead-letter queue for manual processing
+        this.deadLetterQueue.push({
+          event,
+          payload,
+          error: error instanceof Error ? error : new Error(String(error)),
+        });
+
+        // Emit dead-letter event for monitoring/alerting
+        this.emitter.emit('eventbus.deadletter', {
+          event,
+          payload,
+          error,
+          attempts: attempt + 1,
+        });
+
+        return;
+      }
+
+      // Calculate delay with exponential backoff
+      const delay = Math.min(
+        this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffMultiplier, attempt),
+        this.retryConfig.maxDelayMs
+      );
+
+      logger.warn(
+        `Event handler failed, retrying in ${delay}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries}): "${event}"`,
+        { error, payload }
+      );
+
+      // Wait before retry
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Retry
+      await this.retryWithBackoff(handler, event, payload, attempt + 1);
+    }
+  }
+
+  /**
+   * Get failed events from dead-letter queue (for monitoring/manual retry)
+   */
+  getDeadLetterQueue(): Array<{ event: string; payload: unknown; error: Error }> {
+    return [...this.deadLetterQueue];
+  }
+
+  /**
+   * Clear dead-letter queue
+   */
+  clearDeadLetterQueue(): void {
+    this.deadLetterQueue = [];
+    logger.info('Dead-letter queue cleared');
   }
 
   /**
@@ -49,19 +154,20 @@ export class EventBus implements IEventBus {
   }
 
   /**
-   * Subscribe to a typed event
+   * Subscribe to a typed event with automatic retry
    * Use this for known events defined in EventMap
    */
   onTyped<T extends EventName>(event: T, handler: TypedEventHandler<T>): void {
     logger.debug(`Event listener registered: ${event}`);
     const wrappedHandler = async (payload: EventPayload<T>) => {
-      try {
-        await handler(payload);
-      } catch (error) {
-        // Log errors but don't propagate to prevent one handler failure
-        // from breaking other event handlers or the emitting code
-        logger.error(`Error in event handler for "${event}":`, error);
-      }
+      // Wrap handler execution with retry mechanism
+      await this.retryWithBackoff(
+        async () => {
+          await handler(payload);
+        },
+        event,
+        payload
+      );
     };
     this.handlerMap.set(
       handler as EventHandler<any>,
@@ -71,18 +177,19 @@ export class EventBus implements IEventBus {
   }
 
   /**
-   * Subscribe to a generic event (backward compatible)
+   * Subscribe to a generic event with automatic retry (backward compatible)
    */
   on<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`Event listener registered: ${event}`);
     const wrappedHandler = async (payload: T) => {
-      try {
-        await handler(payload);
-      } catch (error) {
-        // Log errors but don't propagate to prevent one handler failure
-        // from breaking other event handlers or the emitting code
-        logger.error(`Error in event handler for "${event}":`, error);
-      }
+      // Wrap handler execution with retry mechanism
+      await this.retryWithBackoff(
+        async () => {
+          await handler(payload);
+        },
+        event,
+        payload
+      );
     };
     this.handlerMap.set(
       handler as EventHandler<any>,
@@ -104,17 +211,20 @@ export class EventBus implements IEventBus {
   }
 
   /**
-   * Subscribe to an event (fires only once)
+   * Subscribe to an event with automatic retry (fires only once)
    */
   once<T = GenericEventPayload>(event: string, handler: EventHandler<T>): void {
     logger.debug(`One-time event listener registered: ${event}`);
     const wrappedHandler = async (payload: T) => {
       try {
-        await handler(payload);
-      } catch (error) {
-        // Log errors but don't propagate to prevent one handler failure
-        // from breaking other event handlers or the emitting code
-        logger.error(`Error in one-time event handler for "${event}":`, error);
+        // Wrap handler execution with retry mechanism
+        await this.retryWithBackoff(
+          async () => {
+            await handler(payload);
+          },
+          event,
+          payload
+        );
       } finally {
         // Clean up from handlerMap after execution
         this.handlerMap.delete(handler as EventHandler<any>);

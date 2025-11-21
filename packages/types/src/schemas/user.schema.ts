@@ -6,14 +6,14 @@ import { EmailSchema } from './common.schema';
  * User schemas
  */
 
-export const UserRoleSchema = z.enum(['user', 'admin', 'moderator']);
+export const UserRoleSchema = z.enum(['USER', 'ADMIN', 'MODERATOR']);
 
 export const CreateUserSchema = z.object({
   email: EmailSchema,
   password: z.string().min(8),
   firstName: z.string().min(1).max(50),
   lastName: z.string().min(1).max(50),
-  role: UserRoleSchema.default('user'),
+  role: UserRoleSchema.default('USER'),
 });
 
 export const UpdateUserSchema = z.object({

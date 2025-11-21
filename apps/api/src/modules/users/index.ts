@@ -22,5 +22,8 @@ const UsersModule: IModule = {
 
 export * from './users.service';
 
+// Named export for tests and direct imports
+export { UsersModule };
+
 // Default export for module loader
 export default UsersModule;

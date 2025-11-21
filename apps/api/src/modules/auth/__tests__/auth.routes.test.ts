@@ -6,11 +6,15 @@ import authRoutes from '../auth.routes';
 import { AuthService } from '../auth.service';
 import { UserRole } from '@nexuscore/types';
 import { UnauthorizedError } from '../../../core/errors';
+import { prisma } from '@nexuscore/db';
+import { JWTService } from '../../../shared/services';
 
 // Mock prisma
 jest.mock('@nexuscore/db', () => ({
   prisma: {
-    user: {},
+    user: {
+      findUnique: jest.fn(),
+    },
     refreshToken: {},
   },
 }));
@@ -161,9 +165,21 @@ describe('Auth Routes Integration Tests', () => {
   describe('POST /auth/logout', () => {
     it('should logout user successfully', async () => {
       (AuthService.prototype.logout as jest.Mock).mockResolvedValue({ success: true });
+      (JWTService.verifyAccessToken as jest.Mock).mockReturnValue({
+        userId: 'user-123',
+        email: 'user@example.com',
+        role: 'USER',
+      });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-123',
+        email: 'user@example.com',
+        role: 'USER',
+        isActive: true,
+      });
 
       const response = await request(app)
         .post('/auth/logout')
+        .set('Authorization', 'Bearer valid_access_token')
         .set('Cookie', ['refreshToken=valid_token'])
         .expect(200);
 
@@ -172,7 +188,22 @@ describe('Auth Routes Integration Tests', () => {
     });
 
     it('should logout even without refresh token', async () => {
-      const response = await request(app).post('/auth/logout').expect(200);
+      (JWTService.verifyAccessToken as jest.Mock).mockReturnValue({
+        userId: 'user-123',
+        email: 'user@example.com',
+        role: 'USER',
+      });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-123',
+        email: 'user@example.com',
+        role: 'USER',
+        isActive: true,
+      });
+
+      const response = await request(app)
+        .post('/auth/logout')
+        .set('Authorization', 'Bearer valid_access_token')
+        .expect(200);
 
       expect(response.body.success).toBe(true);
       expect(AuthService.prototype.logout).not.toHaveBeenCalled();

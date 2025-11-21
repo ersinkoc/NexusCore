@@ -295,7 +295,7 @@ describe('PostsService', () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
       (prisma.post.update as jest.Mock).mockResolvedValue(updatedPost);
 
-      const result = await PostsService.update(postId, userId, 'user', input);
+      const result = await PostsService.update(postId, userId, 'USER', input);
 
       expect(result).toEqual(updatedPost);
       expect(eventBus.emit).toHaveBeenCalledWith('post.updated', {
@@ -318,7 +318,7 @@ describe('PostsService', () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
       (prisma.post.update as jest.Mock).mockResolvedValue(updatedPost);
 
-      const result = await PostsService.update(postId, userId, 'admin', input);
+      const result = await PostsService.update(postId, userId, 'ADMIN', input);
 
       expect(result).toEqual(updatedPost);
     });
@@ -326,7 +326,7 @@ describe('PostsService', () => {
     it('should throw NotFoundError if post not found', async () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(PostsService.update('nonexistent', 'user-123', 'user', {})).rejects.toThrow(
+      await expect(PostsService.update('nonexistent', 'user-123', 'USER', {})).rejects.toThrow(
         NotFoundError
       );
     });
@@ -339,7 +339,7 @@ describe('PostsService', () => {
 
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
 
-      await expect(PostsService.update('post-123', 'user-123', 'user', {})).rejects.toThrow(
+      await expect(PostsService.update('post-123', 'user-123', 'USER', {})).rejects.toThrow(
         ForbiddenError
       );
     });
@@ -357,7 +357,7 @@ describe('PostsService', () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
       (prisma.post.delete as jest.Mock).mockResolvedValue(existingPost);
 
-      const result = await PostsService.delete(postId, userId, 'user');
+      const result = await PostsService.delete(postId, userId, 'USER');
 
       expect(result).toEqual({ message: 'Post deleted successfully' });
       expect(prisma.post.delete).toHaveBeenCalledWith({ where: { id: postId } });
@@ -375,7 +375,7 @@ describe('PostsService', () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
       (prisma.post.delete as jest.Mock).mockResolvedValue(existingPost);
 
-      await PostsService.delete(postId, userId, 'admin');
+      await PostsService.delete(postId, userId, 'ADMIN');
 
       expect(prisma.post.delete).toHaveBeenCalled();
     });
@@ -383,7 +383,7 @@ describe('PostsService', () => {
     it('should throw NotFoundError if post not found', async () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(PostsService.delete('nonexistent', 'user-123', 'user')).rejects.toThrow(
+      await expect(PostsService.delete('nonexistent', 'user-123', 'USER')).rejects.toThrow(
         NotFoundError
       );
     });
@@ -396,7 +396,7 @@ describe('PostsService', () => {
 
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
 
-      await expect(PostsService.delete('post-123', 'user-123', 'user')).rejects.toThrow(
+      await expect(PostsService.delete('post-123', 'user-123', 'USER')).rejects.toThrow(
         ForbiddenError
       );
     });
@@ -421,7 +421,7 @@ describe('PostsService', () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
       (prisma.post.update as jest.Mock).mockResolvedValue(publishedPost);
 
-      const result = await PostsService.publish(postId, userId, 'user');
+      const result = await PostsService.publish(postId, userId, 'USER');
 
       expect(result.status).toBe(PostStatus.PUBLISHED);
       expect(eventBus.emit).toHaveBeenCalledWith('post.published', {
@@ -448,7 +448,7 @@ describe('PostsService', () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
       (prisma.post.update as jest.Mock).mockResolvedValue(publishedPost);
 
-      await PostsService.publish(postId, userId, 'admin');
+      await PostsService.publish(postId, userId, 'ADMIN');
 
       expect(prisma.post.update).toHaveBeenCalled();
     });
@@ -456,7 +456,7 @@ describe('PostsService', () => {
     it('should throw NotFoundError if post not found', async () => {
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(PostsService.publish('nonexistent', 'user-123', 'user')).rejects.toThrow(
+      await expect(PostsService.publish('nonexistent', 'user-123', 'USER')).rejects.toThrow(
         NotFoundError
       );
     });
@@ -469,7 +469,7 @@ describe('PostsService', () => {
 
       (prisma.post.findUnique as jest.Mock).mockResolvedValue(existingPost);
 
-      await expect(PostsService.publish('post-123', 'user-123', 'user')).rejects.toThrow(
+      await expect(PostsService.publish('post-123', 'user-123', 'USER')).rejects.toThrow(
         ForbiddenError
       );
     });
