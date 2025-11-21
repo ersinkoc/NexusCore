@@ -29,28 +29,44 @@ export class SanitizationService {
     return sanitizeHtml(dirty, {
       allowedTags: [
         // Basic formatting
-        'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's',
+        'p',
+        'br',
+        'strong',
+        'b',
+        'em',
+        'i',
+        'u',
+        's',
         // Lists
-        'ul', 'ol', 'li',
+        'ul',
+        'ol',
+        'li',
         // Headings
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
         // Quotes
-        'blockquote', 'q',
+        'blockquote',
+        'q',
         // Code
-        'code', 'pre',
+        'code',
+        'pre',
         // Links (with restrictions)
         'a',
       ],
       allowedAttributes: {
-        'a': ['href', 'title', 'target', 'rel'],
+        a: ['href', 'title', 'target', 'rel'],
       },
       allowedSchemes: ['http', 'https', 'mailto'],
       allowedSchemesByTag: {
-        'a': ['http', 'https', 'mailto'],
+        a: ['http', 'https', 'mailto'],
       },
       // Enforce security attributes on links
       transformTags: {
-        'a': (_tagName, attribs) => {
+        a: (_tagName, attribs) => {
           return {
             tagName: 'a',
             attribs: {
@@ -85,10 +101,13 @@ export class SanitizationService {
    */
   static sanitizeQueryParam(dirty: string): string {
     // Remove null bytes, control characters, and SQL/NoSQL special chars
-    return dirty
-      .replace(/\0/g, '') // Null bytes
-      .replace(/[\x00-\x1F\x7F]/g, '') // Control characters
-      .trim();
+    return (
+      dirty
+        .replace(/\0/g, '') // Null bytes
+        // eslint-disable-next-line no-control-regex
+        .replace(new RegExp('[\\x00-\\x1F\\x7F]', 'g'), '') // Control characters
+        .trim()
+    );
   }
 
   /**
@@ -96,11 +115,14 @@ export class SanitizationService {
    * Removes directory separators and other dangerous characters
    */
   static sanitizeFilename(filename: string): string {
-    return filename
-      .replace(/[/\\]/g, '') // Remove path separators
-      .replace(/\.\./g, '') // Remove parent directory references
-      .replace(/[<>:"|?*\x00-\x1F]/g, '') // Remove invalid filename chars
-      .trim();
+    return (
+      filename
+        .replace(/[/\\]/g, '') // Remove path separators
+        .replace(/\.\./g, '') // Remove parent directory references
+        // eslint-disable-next-line no-control-regex
+        .replace(new RegExp('[<>:"|?*\\x00-\\x1F]', 'g'), '') // Remove invalid filename chars
+        .trim()
+    );
   }
 
   /**
@@ -108,10 +130,7 @@ export class SanitizationService {
    * Basic validation and normalization
    */
   static sanitizeEmail(email: string): string {
-    return email
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ''); // Remove all whitespace
+    return email.toLowerCase().trim().replace(/\s+/g, ''); // Remove all whitespace
   }
 
   /**
