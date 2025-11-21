@@ -1,8 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { PostsService } from './posts.service';
 import { requireAuth, AuthenticatedRequest } from '../auth/auth.middleware';
-import { createPostSchema, updatePostSchema, queryPostsSchema } from '@nexuscore/types';
-import { ValidationError } from '../../core/errors';
+import {
+  createPostSchema,
+  updatePostSchema,
+  queryPostsSchema,
+  postIdParamSchema,
+  postSlugParamSchema,
+} from '@nexuscore/types';
 import { asyncHandler } from '../../shared/utils/async-handler';
 
 const router: Router = Router();
@@ -74,7 +79,9 @@ router.get(
 router.get(
   '/slug/:slug',
   asyncHandler(async (req: Request, res: Response) => {
-    const post = await PostsService.findBySlug(req.params.slug);
+    // Validate slug parameter
+    const { slug } = postSlugParamSchema.parse(req.params);
+    const post = await PostsService.findBySlug(slug);
     res.json(post);
   })
 );
@@ -151,7 +158,9 @@ router.post(
 router.get(
   '/:id',
   asyncHandler(async (req: Request, res: Response) => {
-    const post = await PostsService.findById(req.params.id);
+    // Validate post ID parameter
+    const { id } = postIdParamSchema.parse(req.params);
+    const post = await PostsService.findById(id);
     res.json(post);
   })
 );
@@ -203,8 +212,10 @@ router.put(
       return;
     }
 
+    // Validate post ID parameter
+    const { id } = postIdParamSchema.parse(req.params);
     const data = updatePostSchema.parse(req.body);
-    const post = await PostsService.update(req.params.id, req.user.userId, req.user.role, data);
+    const post = await PostsService.update(id, req.user.userId, req.user.role, data);
     res.json(post);
   })
 );
@@ -242,7 +253,9 @@ router.delete(
       return;
     }
 
-    const result = await PostsService.delete(req.params.id, req.user.userId, req.user.role);
+    // Validate post ID parameter
+    const { id } = postIdParamSchema.parse(req.params);
+    const result = await PostsService.delete(id, req.user.userId, req.user.role);
     res.json(result);
   })
 );
@@ -280,7 +293,9 @@ router.post(
       return;
     }
 
-    const post = await PostsService.publish(req.params.id, req.user.userId, req.user.role);
+    // Validate post ID parameter
+    const { id } = postIdParamSchema.parse(req.params);
+    const post = await PostsService.publish(id, req.user.userId, req.user.role);
     res.json(post);
   })
 );

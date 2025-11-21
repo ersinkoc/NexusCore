@@ -47,8 +47,25 @@ export const queryPostsSchema = z.object({
 });
 
 /**
+ * Path parameter schemas for validation
+ */
+export const postIdParamSchema = z.object({
+  id: z.string().uuid('Invalid post ID format'),
+});
+
+export const postSlugParamSchema = z.object({
+  slug: z
+    .string()
+    .min(1, 'Slug is required')
+    .max(255, 'Slug too long')
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Invalid slug format'),
+});
+
+/**
  * Type exports
  */
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 export type QueryPostsInput = z.infer<typeof queryPostsSchema>;
+export type PostIdParam = z.infer<typeof postIdParamSchema>;
+export type PostSlugParam = z.infer<typeof postSlugParamSchema>;

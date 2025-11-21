@@ -29,6 +29,7 @@ describe('Auth Events', () => {
       expect(logger.info).toHaveBeenCalledWith('New user registered', {
         userId: 'user-123',
         email: 'newuser@example.com',
+        fullName: 'John Doe',
       });
     });
 
@@ -48,6 +49,7 @@ describe('Auth Events', () => {
         expect.objectContaining({
           userId: 'user-456',
           email: 'test@example.com',
+          fullName: 'Test User',
         })
       );
     });
@@ -62,10 +64,14 @@ describe('Auth Events', () => {
 
       await onUserLogin(payload);
 
-      expect(logger.info).toHaveBeenCalledWith('User login event', {
-        userId: 'user-789',
-        email: 'user@example.com',
-      });
+      expect(logger.info).toHaveBeenCalledWith(
+        'User login event',
+        expect.objectContaining({
+          userId: 'user-789',
+          email: 'user@example.com',
+          timestamp: expect.any(String),
+        })
+      );
     });
 
     it('should log multiple login events', async () => {
@@ -83,14 +89,24 @@ describe('Auth Events', () => {
       await onUserLogin(payload2);
 
       expect(logger.info).toHaveBeenCalledTimes(2);
-      expect(logger.info).toHaveBeenNthCalledWith(1, 'User login event', {
-        userId: 'user-1',
-        email: 'user1@example.com',
-      });
-      expect(logger.info).toHaveBeenNthCalledWith(2, 'User login event', {
-        userId: 'user-2',
-        email: 'user2@example.com',
-      });
+      expect(logger.info).toHaveBeenNthCalledWith(
+        1,
+        'User login event',
+        expect.objectContaining({
+          userId: 'user-1',
+          email: 'user1@example.com',
+          timestamp: expect.any(String),
+        })
+      );
+      expect(logger.info).toHaveBeenNthCalledWith(
+        2,
+        'User login event',
+        expect.objectContaining({
+          userId: 'user-2',
+          email: 'user2@example.com',
+          timestamp: expect.any(String),
+        })
+      );
     });
   });
 
@@ -118,6 +134,7 @@ describe('Auth Events', () => {
       expect(logger.info).toHaveBeenCalledWith('New user registered', {
         userId: 'user-wrapper-123',
         email: 'wrapper@example.com',
+        fullName: 'Wrapper Test',
       });
     });
 
@@ -129,10 +146,14 @@ describe('Auth Events', () => {
 
       await AuthEventHandlers['auth.login'](payload);
 
-      expect(logger.info).toHaveBeenCalledWith('User login event', {
-        userId: 'user-wrapper-456',
-        email: 'login@example.com',
-      });
+      expect(logger.info).toHaveBeenCalledWith(
+        'User login event',
+        expect.objectContaining({
+          userId: 'user-wrapper-456',
+          email: 'login@example.com',
+          timestamp: expect.any(String),
+        })
+      );
     });
   });
 });

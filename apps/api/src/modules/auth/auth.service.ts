@@ -37,7 +37,7 @@ export class AuthService {
           password: hashedPassword,
           firstName: input.firstName,
           lastName: input.lastName,
-          role: UserRole.USER,
+          role: UserRole.USER as any,
         },
         select: {
           id: true,
@@ -53,7 +53,7 @@ export class AuthService {
       const jwtPayload: JWTPayload = {
         userId: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role as UserRole,
       };
 
       const accessToken = JWTService.generateAccessToken(jwtPayload);
@@ -135,7 +135,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role,
+        role: user.role as UserRole,
         createdAt: user.createdAt,
       },
       ...tokens,
@@ -198,7 +198,7 @@ export class AuthService {
       const jwtPayload: JWTPayload = {
         userId: storedToken.user.id,
         email: storedToken.user.email,
-        role: storedToken.user.role,
+        role: storedToken.user.role as UserRole,
       };
 
       const accessToken = JWTService.generateAccessToken(jwtPayload);
