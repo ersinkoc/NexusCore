@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 import { prisma } from '@nexuscore/db';
 import {
   CreatePostInput,
@@ -37,8 +39,7 @@ export class PostsService {
 
     // Always append timestamp + cryptographically secure random suffix to ensure uniqueness
     // This prevents race conditions where multiple requests create posts with same title simultaneously
-    const crypto = await import('crypto');
-    const randomPart = crypto.randomBytes(4).toString('hex');
+    const randomPart = randomBytes(4).toString('hex');
     const slug = `${baseSlug}-${Date.now()}-${randomPart}`;
 
     // Create post with guaranteed unique slug

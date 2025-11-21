@@ -124,13 +124,9 @@ router.post(
   '/',
   requireAuth,
   asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
+    // req.user guaranteed to exist by requireAuth middleware
     const data = createPostSchema.parse(req.body);
-    const post = await PostsService.create(req.user.userId, data);
+    const post = await PostsService.create(req.user!.userId, data);
     res.status(201).json(post);
   })
 );
@@ -207,15 +203,11 @@ router.put(
   '/:id',
   requireAuth,
   asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
+    // req.user guaranteed to exist by requireAuth middleware
     // Validate post ID parameter
     const { id } = postIdParamSchema.parse(req.params);
     const data = updatePostSchema.parse(req.body);
-    const post = await PostsService.update(id, req.user.userId, req.user.role, data);
+    const post = await PostsService.update(id, req.user!.userId, req.user!.role, data);
     res.json(post);
   })
 );
@@ -248,14 +240,10 @@ router.delete(
   '/:id',
   requireAuth,
   asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
+    // req.user guaranteed to exist by requireAuth middleware
     // Validate post ID parameter
     const { id } = postIdParamSchema.parse(req.params);
-    const result = await PostsService.delete(id, req.user.userId, req.user.role);
+    const result = await PostsService.delete(id, req.user!.userId, req.user!.role);
     res.json(result);
   })
 );
@@ -288,14 +276,10 @@ router.post(
   '/:id/publish',
   requireAuth,
   asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
+    // req.user guaranteed to exist by requireAuth middleware
     // Validate post ID parameter
     const { id } = postIdParamSchema.parse(req.params);
-    const post = await PostsService.publish(id, req.user.userId, req.user.role);
+    const post = await PostsService.publish(id, req.user!.userId, req.user!.role);
     res.json(post);
   })
 );

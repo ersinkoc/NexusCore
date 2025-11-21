@@ -4,6 +4,7 @@ import { AuthenticatedRequest, UserRole } from '@nexuscore/types';
 
 import { UnauthorizedError, ForbiddenError } from '../../core/errors';
 import { JWTService } from '../../shared/services';
+import { logger } from '../../core/logger';
 
 // Re-export types for convenience
 export type { AuthenticatedRequest };
@@ -84,7 +85,6 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
     // Log token verification errors for security monitoring
     // but continue without user (optional auth)
     if (error instanceof Error) {
-      const { logger } = require('../../core/logger');
       logger.warn('Invalid token in optional auth', {
         error: error.message,
         path: req.path,
