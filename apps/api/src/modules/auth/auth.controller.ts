@@ -4,8 +4,8 @@ import { LoginSchema, RegisterSchema, AuthenticatedRequest } from '@nexuscore/ty
 
 import { asyncHandler } from '../../shared/utils';
 import { AuthService } from './auth.service';
-import { CsrfService } from '../../shared/services';
-import { UnauthorizedError } from '../../core/errors';
+import { CsrfService, SessionService } from '../../shared/services';
+import { UnauthorizedError, NotFoundError } from '../../core/errors';
 
 const authService = new AuthService();
 
@@ -193,6 +193,67 @@ export class AuthController {
       data: {
         message: 'Logged out from all devices successfully',
         devicesLoggedOut: result.devicesLoggedOut,
+      },
+    });
+  });
+
+  /**
+   * Get user's active sessions
+   * GET /api/auth/sessions
+   */
+  getSessions = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    const sessions = await SessionService.getUserSessions(user.userId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sessions,
+        count: sessions.length,
+      },
+    });
+  });
+
+  /**
+   * Revoke a specific session
+   * DELETE /api/auth/sessions/:sessionId
+   */
+  revokeSession = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+    const { sessionId } = req.params;
+
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    // Verify the session belongs to the user
+    const sessions = await SessionService.getUserSessions(user.userId);
+    const session = sessions.find((s: any) => s.id === sessionId);
+
+    if (!session) {
+      throw new NotFoundError('Session not found or does not belong to you');
+    }
+
+    // Delete the session
+    await SessionService.deleteSession(sessionId);
+
+    // If revoking current session, clear cookies
+    const currentSessionId = req.cookies.sessionId;
+    if (sessionId === currentSessionId) {
+      res.clearCookie('refreshToken');
+      res.clearCookie('csrfToken');
+      res.clearCookie('sessionId');
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Session revoked successfully',
       },
     });
   });
