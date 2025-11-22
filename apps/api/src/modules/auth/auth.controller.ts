@@ -4,6 +4,8 @@ import { LoginSchema, RegisterSchema, AuthenticatedRequest } from '@nexuscore/ty
 
 import { asyncHandler } from '../../shared/utils';
 import { AuthService } from './auth.service';
+import { CsrfService, SessionService } from '../../shared/services';
+import { UnauthorizedError, NotFoundError } from '../../core/errors';
 
 const authService = new AuthService();
 
@@ -18,10 +20,29 @@ export class AuthController {
    */
   register = asyncHandler(async (req: Request, res: Response) => {
     const input = RegisterSchema.parse(req.body);
-    const result = await authService.register(input);
+    const result = await authService.register(input, req);
+
+    // Generate CSRF token for authenticated session
+    const csrfToken = CsrfService.generateToken();
 
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set CSRF token as httpOnly cookie
+    res.cookie('csrfToken', csrfToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set session ID as httpOnly cookie
+    res.cookie('sessionId', result.sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -33,6 +54,7 @@ export class AuthController {
       data: {
         user: result.user,
         accessToken: result.accessToken,
+        csrfToken: csrfToken.signature, // Client includes this in X-CSRF-Token header
       },
     });
   });
@@ -43,10 +65,29 @@ export class AuthController {
    */
   login = asyncHandler(async (req: Request, res: Response) => {
     const input = LoginSchema.parse(req.body);
-    const result = await authService.login(input);
+    const result = await authService.login(input, req);
+
+    // Generate CSRF token for authenticated session
+    const csrfToken = CsrfService.generateToken();
 
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set CSRF token as httpOnly cookie
+    res.cookie('csrfToken', csrfToken.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Set session ID as httpOnly cookie
+    res.cookie('sessionId', result.sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -58,6 +99,7 @@ export class AuthController {
       data: {
         user: result.user,
         accessToken: result.accessToken,
+        csrfToken: csrfToken.signature, // Client includes this in X-CSRF-Token header
       },
     });
   });
@@ -68,13 +110,17 @@ export class AuthController {
    */
   logout = asyncHandler(async (req: Request, res: Response) => {
     const refreshToken = req.cookies.refreshToken;
+    const sessionId = req.cookies.sessionId;
+    const user = (req as AuthenticatedRequest).user;
 
     if (refreshToken) {
-      await authService.logout(refreshToken);
+      await authService.logout(refreshToken, sessionId, user?.userId, req);
     }
 
-    // Clear refresh token cookie
+    // Clear refresh token, CSRF token, and session ID cookies
     res.clearCookie('refreshToken');
+    res.clearCookie('csrfToken');
+    res.clearCookie('sessionId');
 
     res.status(200).json({
       success: true,
@@ -90,17 +136,10 @@ export class AuthController {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      res.status(401).json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Refresh token not found',
-        },
-      });
-      return;
+      throw new UnauthorizedError('Refresh token not found');
     }
 
-    const result = await authService.refresh(refreshToken);
+    const result = await authService.refresh(refreshToken, req);
 
     // Set new refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
@@ -128,6 +167,94 @@ export class AuthController {
     res.status(200).json({
       success: true,
       data: { user },
+    });
+  });
+
+  /**
+   * Logout from all devices
+   * POST /api/auth/logout-all
+   */
+  logoutAll = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    const result = await authService.logoutAll(user.userId, req);
+
+    // Clear current refresh token, CSRF token, and session ID cookies
+    res.clearCookie('refreshToken');
+    res.clearCookie('csrfToken');
+    res.clearCookie('sessionId');
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Logged out from all devices successfully',
+        devicesLoggedOut: result.devicesLoggedOut,
+      },
+    });
+  });
+
+  /**
+   * Get user's active sessions
+   * GET /api/auth/sessions
+   */
+  getSessions = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    const sessions = await SessionService.getUserSessions(user.userId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        sessions,
+        count: sessions.length,
+      },
+    });
+  });
+
+  /**
+   * Revoke a specific session
+   * DELETE /api/auth/sessions/:sessionId
+   */
+  revokeSession = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedRequest).user;
+    const { sessionId } = req.params;
+
+    if (!user) {
+      throw new UnauthorizedError('User not authenticated');
+    }
+
+    // Verify the session belongs to the user
+    const sessions = await SessionService.getUserSessions(user.userId);
+    const session = sessions.find((s: any) => s.id === sessionId);
+
+    if (!session) {
+      throw new NotFoundError('Session not found or does not belong to you');
+    }
+
+    // Delete the session
+    await SessionService.deleteSession(sessionId);
+
+    // If revoking current session, clear cookies
+    const currentSessionId = req.cookies.sessionId;
+    if (sessionId === currentSessionId) {
+      res.clearCookie('refreshToken');
+      res.clearCookie('csrfToken');
+      res.clearCookie('sessionId');
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Session revoked successfully',
+      },
     });
   });
 }

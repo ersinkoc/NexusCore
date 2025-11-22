@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { Request } from 'express';
 
 import { prisma } from '@nexuscore/db';
 import {
@@ -11,6 +12,8 @@ import {
 import { NotFoundError, ForbiddenError, ValidationError } from '../../core/errors';
 import { eventBus } from '../../core/event-bus';
 import { logger } from '../../core/logger';
+import { SanitizationService, AuditService } from '../../shared/services';
+import { AuditAction } from '../../shared/services/audit.service';
 
 /**
  * Generate URL-friendly slug from title
@@ -30,8 +33,21 @@ export class PostsService {
    * Generates unique slug by appending timestamp + random suffix
    * Retries with new random suffix if collision occurs (extremely rare)
    */
-  static async create(userId: string, input: CreatePostInput) {
-    const baseSlug = generateSlug(input.title);
+  static async create(userId: string, input: CreatePostInput, req?: Request) {
+    // Sanitize user input to prevent XSS attacks
+    const sanitizedTitle = SanitizationService.sanitizeText(input.title);
+    const sanitizedContent = SanitizationService.sanitizeHtml(input.content);
+    const sanitizedExcerpt = input.excerpt
+      ? SanitizationService.sanitizeText(input.excerpt)
+      : undefined;
+    const sanitizedMetaTitle = input.metaTitle
+      ? SanitizationService.sanitizeText(input.metaTitle)
+      : undefined;
+    const sanitizedMetaDescription = input.metaDescription
+      ? SanitizationService.sanitizeText(input.metaDescription)
+      : undefined;
+
+    const baseSlug = generateSlug(sanitizedTitle);
 
     // Prevent empty slugs
     if (!baseSlug || baseSlug.length === 0) {
@@ -52,7 +68,12 @@ export class PostsService {
         // Attempt to create post with generated slug
         const post = await prisma.post.create({
           data: {
-            ...input,
+            title: sanitizedTitle,
+            content: sanitizedContent,
+            excerpt: sanitizedExcerpt,
+            metaTitle: sanitizedMetaTitle,
+            metaDescription: sanitizedMetaDescription,
+            status: input.status,
             slug,
             authorId: userId,
           },
@@ -69,6 +90,21 @@ export class PostsService {
         });
 
         logger.info('Post created', { postId: post.id, userId, attempts: attempt + 1 });
+
+        // Log audit event
+        await AuditService.log({
+          userId,
+          action: AuditAction.POST_CREATED,
+          entity: 'post',
+          entityId: post.id,
+          metadata: {
+            title: post.title,
+            status: post.status,
+            slug: post.slug,
+          },
+          req,
+        });
+
         eventBus.emit('post.created', { post, userId });
 
         return post;
@@ -227,7 +263,13 @@ export class PostsService {
   /**
    * Update post
    */
-  static async update(id: string, userId: string, userRole: string, input: UpdatePostInput) {
+  static async update(
+    id: string,
+    userId: string,
+    userRole: string,
+    input: UpdatePostInput,
+    req?: Request
+  ) {
     const post = await prisma.post.findUnique({
       where: { id },
     });
@@ -241,9 +283,33 @@ export class PostsService {
       throw new ForbiddenError('You do not have permission to update this post');
     }
 
+    // Sanitize user input to prevent XSS attacks
+    const sanitizedData: UpdatePostInput = {};
+    if (input.title !== undefined) {
+      sanitizedData.title = SanitizationService.sanitizeText(input.title);
+    }
+    if (input.content !== undefined) {
+      sanitizedData.content = SanitizationService.sanitizeHtml(input.content);
+    }
+    if (input.excerpt !== undefined) {
+      sanitizedData.excerpt = SanitizationService.sanitizeText(input.excerpt);
+    }
+    if (input.metaTitle !== undefined) {
+      sanitizedData.metaTitle = SanitizationService.sanitizeText(input.metaTitle);
+    }
+    if (input.metaDescription !== undefined) {
+      sanitizedData.metaDescription = SanitizationService.sanitizeText(input.metaDescription);
+    }
+    if (input.status !== undefined) {
+      sanitizedData.status = input.status;
+    }
+    if (input.publishedAt !== undefined) {
+      sanitizedData.publishedAt = input.publishedAt;
+    }
+
     const updated = await prisma.post.update({
       where: { id },
-      data: input,
+      data: sanitizedData,
       include: {
         author: {
           select: {
@@ -257,6 +323,21 @@ export class PostsService {
     });
 
     logger.info('Post updated', { postId: id, userId });
+
+    // Log audit event
+    await AuditService.log({
+      userId,
+      action: AuditAction.POST_UPDATED,
+      entity: 'post',
+      entityId: id,
+      metadata: {
+        title: updated.title,
+        status: updated.status,
+        changedFields: Object.keys(sanitizedData),
+      },
+      req,
+    });
+
     eventBus.emit('post.updated', { post: updated, userId });
 
     return updated;
@@ -265,7 +346,7 @@ export class PostsService {
   /**
    * Delete post
    */
-  static async delete(id: string, userId: string, userRole: string) {
+  static async delete(id: string, userId: string, userRole: string, req?: Request) {
     const post = await prisma.post.findUnique({
       where: { id },
     });
@@ -284,6 +365,20 @@ export class PostsService {
     });
 
     logger.info('Post deleted', { postId: id, userId });
+
+    // Log audit event
+    await AuditService.log({
+      userId,
+      action: AuditAction.POST_DELETED,
+      entity: 'post',
+      entityId: id,
+      metadata: {
+        title: post.title,
+        status: post.status,
+      },
+      req,
+    });
+
     eventBus.emit('post.deleted', { postId: id, userId });
 
     return { message: 'Post deleted successfully' };
@@ -292,7 +387,7 @@ export class PostsService {
   /**
    * Publish post
    */
-  static async publish(id: string, userId: string, userRole: string) {
+  static async publish(id: string, userId: string, userRole: string, req?: Request) {
     const post = await prisma.post.findUnique({
       where: { id },
     });
@@ -330,6 +425,20 @@ export class PostsService {
     });
 
     logger.info('Post published', { postId: id, userId });
+
+    // Log audit event
+    await AuditService.log({
+      userId,
+      action: AuditAction.POST_PUBLISHED,
+      entity: 'post',
+      entityId: id,
+      metadata: {
+        title: updated.title,
+        publishedAt: updated.publishedAt,
+      },
+      req,
+    });
+
     eventBus.emit('post.published', { post: updated, userId });
 
     return updated;

@@ -126,7 +126,7 @@ router.post(
   asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     // req.user guaranteed to exist by requireAuth middleware
     const data = createPostSchema.parse(req.body);
-    const post = await PostsService.create(req.user!.userId, data);
+    const post = await PostsService.create(req.user!.userId, data, req);
     res.status(201).json(post);
   })
 );
@@ -207,7 +207,7 @@ router.put(
     // Validate post ID parameter
     const { id } = postIdParamSchema.parse(req.params);
     const data = updatePostSchema.parse(req.body);
-    const post = await PostsService.update(id, req.user!.userId, req.user!.role, data);
+    const post = await PostsService.update(id, req.user!.userId, req.user!.role, data, req);
     res.json(post);
   })
 );
@@ -243,7 +243,7 @@ router.delete(
     // req.user guaranteed to exist by requireAuth middleware
     // Validate post ID parameter
     const { id } = postIdParamSchema.parse(req.params);
-    const result = await PostsService.delete(id, req.user!.userId, req.user!.role);
+    const result = await PostsService.delete(id, req.user!.userId, req.user!.role, req);
     res.json(result);
   })
 );
@@ -279,7 +279,7 @@ router.post(
     // req.user guaranteed to exist by requireAuth middleware
     // Validate post ID parameter
     const { id } = postIdParamSchema.parse(req.params);
-    const post = await PostsService.publish(id, req.user!.userId, req.user!.role);
+    const post = await PostsService.publish(id, req.user!.userId, req.user!.role, req);
     res.json(post);
   })
 );

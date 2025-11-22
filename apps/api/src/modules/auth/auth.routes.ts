@@ -28,5 +28,10 @@ router.post('/refresh', getAuthLimiter, authController.refresh); // Fixed: Add r
 
 // Protected routes
 router.get('/me', requireAuth, authController.me);
+router.post('/logout-all', requireAuth, authController.logoutAll);
+
+// Session management routes
+router.get('/sessions', requireAuth, authController.getSessions);
+router.delete('/sessions/:sessionId', requireAuth, authController.revokeSession);
 
 export default router;
